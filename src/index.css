@@ -64,11 +64,12 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-  background-color: #0f7531 !important;
+  padding: 0;
+  background: #1E1F24;
+  font-family: 'Inter', 'Segoe UI', 'Helvetica Neue', sans-serif;
+  line-height: 1.5;
+  width: 800px;
+  height: 400px;
 }
 
 h1 {
@@ -85,14 +86,24 @@ button {
   font-family: inherit;
   background-color: #e9e9e9;
   cursor: pointer;
-  transition: border-color 0.25s;
+  transition: background-color 0.2s ease, transform 0.1s ease;
 }
+
 button:hover {
-  border-color: #646cff;
+  filter: brightness(93%);
 }
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+
+button:active {
+  transform: scale(0.98);
+}
+
+button:focus {
+  outline: 2px solid #2F82FF;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @media (prefers-color-scheme: light) {
@@ -187,4 +198,42 @@ button:focus-visible {
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Table Row Hover */
+tr:hover {
+  background: #2C2D34;
+}
+
+/* Dropdown Option Hover */
+.dropdown-option:hover {
+  background: #3A3D44;
+}
+
+@keyframes pulse-error {
+  0% {
+    background-color: #FF4C4C15;
+  }
+  50% {
+    background-color: #FF4C4C25;
+  }
+  100% {
+    background-color: #FF4C4C15;
+  }
+}
+
+.error-row {
+  background-color: #FF4C4C15;
+}
+
+.error-row .request-name {
+  color: #FF4C4C !important;
+}
+
+.error-row.selected {
+  animation: pulse-error 2s ease-in-out infinite;
+}
+
+.non-error-row.selected {
+  background-color: #2C2D34;
 }
