@@ -1,0 +1,205 @@
+{
+  "elementStyling": {
+    "header": {
+      "background": "#1E1F24",
+      "text": "#FFFFFF",
+      "statusIndicator": {
+        "enabled": {
+          "text": "BackTrack Enabled",
+          "color": "#00D67F",
+          "iconFill": "#00D67F"
+        },
+        "disabled": {
+          "text": "BackTrack Disabled",
+          "color": "#FF4C4C",
+          "iconFill": "#FF4C4C"
+        }
+      },
+      "font": {
+        "weight": 500,
+        "size": "13px"
+      },
+      "padding": "12px 16px",
+      "borderBottom": "1px solid #2A2C32"
+    },
+
+    "tabs": {
+      "container": {
+        "background": "#1E1F24",
+        "borderBottom": "1px solid #2A2C32"
+      },
+      "tabItem": {
+        "default": {
+          "textColor": "#C5C5D2",
+          "background": "transparent"
+        },
+        "active": {
+          "textColor": "#FFFFFF",
+          "background": "#2C2D34"
+        },
+        "hover": {
+          "textColor": "#FFFFFF",
+          "background": "#2A2B30"
+        },
+        "font": {
+          "size": "13px",
+          "weight": 500
+        },
+        "padding": "8px 12px",
+        "borderRadius": "6px"
+      },
+      "tabList": ["Console", "Network", "Settings"]
+    },
+
+    "cards": {
+      "container": {
+        "background": "linear-gradient(135deg, #2A2C32 0%, #1E1F24 100%)",
+        "border": "#2F3138",
+        "borderRadius": "12px",
+        "shadow": "0 4px 12px rgba(0,0,0,0.25)",
+        "padding": "16px"
+      },
+      "icons": {
+        "fill": "#FFFFFF",
+        "background": "transparent"
+      },
+      "titleText": "#FFFFFF",
+      "subText": "#C5C5D2",
+      "hover": {
+        "background": "#30333A"
+      }
+    },
+
+    "buttons": {
+      "primary": {
+        "background": "#2F82FF",
+        "text": "#FFFFFF",
+        "icon": "#FFFFFF",
+        "hover": {
+          "background": "#1C66E0"
+        },
+        "pressed": {
+          "background": "#174CBF"
+        },
+        "disabled": {
+          "background": "#3C3C46",
+          "text": "#888888",
+          "icon": "#888888"
+        },
+        "borderRadius": "8px",
+        "padding": "10px 14px",
+        "shadow": "none"
+      },
+      "dropdown": {
+        "background": "#2A2C32",
+        "text": "#C5C5D2",
+        "hover": {
+          "background": "#32343B"
+        },
+        "options": {
+          "textColor": "#FFFFFF",
+          "hoverBackground": "#3A3D44",
+          "borderBottom": "1px solid #2F3138"
+        },
+        "borderRadius": "6px"
+      }
+    },
+
+    "table": {
+      "header": {
+        "textColor": "#A0A0B0",
+        "background": "#1E1F24",
+        "fontWeight": 600,
+        "fontSize": "13px",
+        "borderBottom": "1px solid #2A2C32"
+      },
+      "rows": {
+        "background": "#1E1F24",
+        "hoverBackground": "#2C2D34",
+        "borderBottom": "1px solid #2A2C32",
+        "textColor": "#FFFFFF",
+        "fontSize": "13px",
+        "rowSpacing": "8px"
+      },
+      "columns": ["URL", "Method", "Status", "Time"]
+    },
+
+    "exportDropdown": {
+      "button": {
+        "label": "Export as",
+        "icon": "▼",
+        "background": "#2A2C32",
+        "textColor": "#C5C5D2",
+        "hoverBackground": "#34363E",
+        "borderRadius": "6px",
+        "padding": "8px 12px"
+      },
+      "options": {
+        "Option 1": "Export as JSON",
+        "Option 2": "Export as HAR"
+      }
+    }
+  },
+
+  "componentStates": {
+    "buttons": {
+      "default": {
+        "opacity": 1,
+        "boxShadow": "none"
+      },
+      "hover": {
+        "backgroundDarken": "7%",
+        "cursor": "pointer"
+      },
+      "pressed": {
+        "scale": "0.98"
+      },
+      "disabled": {
+        "opacity": 0.5,
+        "cursor": "not-allowed"
+      },
+      "focus": {
+        "outline": "2px solid #2F82FF"
+      }
+    },
+    "tabs": {
+      "focus": {
+        "outline": "2px solid #2F82FF"
+      }
+    },
+    "dropdowns": {
+      "hoverOption": {
+        "background": "#3A3D44"
+      }
+    }
+  },
+
+  "visualEffects": {
+    "shadows": {
+      "cards": "0 4px 12px rgba(0, 0, 0, 0.25)",
+      "buttons": "none"
+    },
+    "gradients": {
+      "cardContainers": "linear-gradient(135deg, #2A2C32 0%, #1E1F24 100%)"
+    },
+    "borderRadius": {
+      "cards": "12px",
+      "buttons": "8px",
+      "tabItems": "6px",
+      "dropdowns": "6px"
+    },
+    "hoverAnimations": {
+      "cards": "background-color 0.2s ease",
+      "buttons": "background-color 0.2s ease, transform 0.1s ease",
+      "rows": "background-color 0.2s ease"
+    }
+  },
+
+  "doNotRules": {
+    "doNotApplyCardGradientTo": ["icons", "buttons", "text"],
+    "doNotUseButtonBackgroundOn": ["text", "icon fills"],
+    "doNotApplyShadowTo": ["text labels", "icons", "inline content"],
+    "doNotUseHeaderBackgroundOn": ["cards", "modals", "popups"],
+    "doNotReplaceStatusIndicatorColor": "Use only #00D67F (enabled) or #FF4C4C (disabled) to indicate status."
+  }
+}
