@@ -12,12 +12,19 @@ export default defineManifest({
     service_worker: 'src/background/index.ts',
     type: 'module',
   },
+  content_scripts: [
+    {
+      matches: ['<all_urls>'],
+      js: ['src/content/inject.ts'],
+      run_at: 'document_start',
+    },
+  ],
   icons: {
     16: 'icons/placeholder-16.png',
     32: 'icons/placeholder-32.png',
     48: 'icons/placeholder-48.png',
     128: 'icons/placeholder-128.png',
   },
-  permissions: ['storage', 'scripting', 'activeTab'],
+  permissions: ['storage', 'scripting', 'activeTab', 'webRequest', 'webRequestBlocking'],
   host_permissions: ['<all_urls>'],
 }); 
