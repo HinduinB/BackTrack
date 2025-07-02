@@ -1,130 +1,77 @@
 {
-  "elementStyling": {
+  "layout": {
     "header": {
+      "position": "top",
+      "height": "48px",
+      "padding": "12px 16px",
       "background": "#1E1F24",
-      "text": "#FFFFFF",
-      "statusIndicator": {
-        "enabled": {
-          "text": "BackTrack Enabled",
-          "color": "#00D67F",
-          "iconFill": "#00D67F"
+      "borderBottom": "1px solid #2A2C32",
+      "content": {
+        "statusIndicator": "BackTrack Enabled or Disabled",
+        "font": {
+          "family": "Inter, Segoe UI, Helvetica Neue, sans-serif",
+          "size": "13px",
+          "weight": 500,
+          "color": "#FFFFFF"
         },
-        "disabled": {
-          "text": "BackTrack Disabled",
-          "color": "#FF4C4C",
-          "iconFill": "#FF4C4C"
+        "icon": {
+          "colorEnabled": "#00D67F",
+          "colorDisabled": "#FF4C4C"
+        }
+      }
+    },
+
+    "mainContent": {
+      "position": "below-header",
+      "tabs": {
+        "type": "horizontal",
+        "items": ["Console", "Network", "Settings"],
+        "activeTabHighlight": true,
+        "spacing": "8px",
+        "padding": "8px 12px",
+        "tabItem": {
+          "default": {
+            "textColor": "#C5C5D2",
+            "background": "transparent"
+          },
+          "hover": {
+            "textColor": "#FFFFFF",
+            "background": "#2A2B30"
+          },
+          "active": {
+            "textColor": "#FFFFFF",
+            "background": "#2C2D34"
+          },
+          "borderRadius": "6px",
+          "fontSize": "13px",
+          "fontWeight": 500
         }
       },
-      "font": {
-        "weight": 500,
-        "size": "13px"
-      },
-      "padding": "12px 16px",
-      "borderBottom": "1px solid #2A2C32"
-    },
 
-    "tabs": {
-      "container": {
-        "background": "#1E1F24",
-        "borderBottom": "1px solid #2A2C32"
-      },
-      "tabItem": {
-        "default": {
-          "textColor": "#C5C5D2",
-          "background": "transparent"
+      "table": {
+        "position": "below-tabs",
+        "columns": ["URL", "Method", "Status", "Time"],
+        "header": {
+          "background": "#1E1F24",
+          "textColor": "#A0A0B0",
+          "fontSize": "13px",
+          "fontWeight": 600,
+          "borderBottom": "1px solid #2A2C32"
         },
-        "active": {
+        "rows": {
+          "background": "#1E1F24",
           "textColor": "#FFFFFF",
-          "background": "#2C2D34"
-        },
-        "hover": {
-          "textColor": "#FFFFFF",
-          "background": "#2A2B30"
-        },
-        "font": {
-          "size": "13px",
-          "weight": 500
-        },
-        "padding": "8px 12px",
-        "borderRadius": "6px"
-      },
-      "tabList": ["Console", "Network", "Settings"]
-    },
-
-    "cards": {
-      "container": {
-        "background": "linear-gradient(135deg, #2A2C32 0%, #1E1F24 100%)",
-        "border": "#2F3138",
-        "borderRadius": "12px",
-        "shadow": "0 4px 12px rgba(0,0,0,0.25)",
-        "padding": "16px"
-      },
-      "icons": {
-        "fill": "#FFFFFF",
-        "background": "transparent"
-      },
-      "titleText": "#FFFFFF",
-      "subText": "#C5C5D2",
-      "hover": {
-        "background": "#30333A"
+          "hoverBackground": "#2C2D34",
+          "fontSize": "13px",
+          "borderBottom": "1px solid #2A2C32",
+          "padding": "6px 8px"
+        }
       }
     },
 
-    "buttons": {
-      "primary": {
-        "background": "#2F82FF",
-        "text": "#FFFFFF",
-        "icon": "#FFFFFF",
-        "hover": {
-          "background": "#1C66E0"
-        },
-        "pressed": {
-          "background": "#174CBF"
-        },
-        "disabled": {
-          "background": "#3C3C46",
-          "text": "#888888",
-          "icon": "#888888"
-        },
-        "borderRadius": "8px",
-        "padding": "10px 14px",
-        "shadow": "none"
-      },
-      "dropdown": {
-        "background": "#2A2C32",
-        "text": "#C5C5D2",
-        "hover": {
-          "background": "#32343B"
-        },
-        "options": {
-          "textColor": "#FFFFFF",
-          "hoverBackground": "#3A3D44",
-          "borderBottom": "1px solid #2F3138"
-        },
-        "borderRadius": "6px"
-      }
-    },
-
-    "table": {
-      "header": {
-        "textColor": "#A0A0B0",
-        "background": "#1E1F24",
-        "fontWeight": 600,
-        "fontSize": "13px",
-        "borderBottom": "1px solid #2A2C32"
-      },
-      "rows": {
-        "background": "#1E1F24",
-        "hoverBackground": "#2C2D34",
-        "borderBottom": "1px solid #2A2C32",
-        "textColor": "#FFFFFF",
-        "fontSize": "13px",
-        "rowSpacing": "8px"
-      },
-      "columns": ["URL", "Method", "Status", "Time"]
-    },
-
-    "exportDropdown": {
+    "exportSection": {
+      "position": "bottom-of-mainContent",
+      "marginTop": "12px",
       "button": {
         "label": "Export as",
         "icon": "▼",
@@ -134,50 +81,58 @@
         "borderRadius": "6px",
         "padding": "8px 12px"
       },
-      "options": {
+      "dropdownOptions": {
         "Option 1": "Export as JSON",
-        "Option 2": "Export as HAR"
+        "Option 2": "Export as HAR",
+        "textColor": "#FFFFFF",
+        "hoverBackground": "#3A3D44",
+        "borderBottom": "1px solid #2F3138"
       }
     }
   },
 
-  "componentStates": {
+  "elementStyling": {
+    "cards": {
+      "background": "linear-gradient(135deg, #2A2C32 0%, #1E1F24 100%)",
+      "border": "#2F3138",
+      "borderRadius": "12px",
+      "shadow": "0 4px 12px rgba(0,0,0,0.25)",
+      "icons": {
+        "fill": "#FFFFFF",
+        "background": "none"
+      }
+    },
     "buttons": {
-      "default": {
-        "opacity": 1,
-        "boxShadow": "none"
-      },
-      "hover": {
-        "backgroundDarken": "7%",
-        "cursor": "pointer"
-      },
-      "pressed": {
-        "scale": "0.98"
-      },
-      "disabled": {
-        "opacity": 0.5,
-        "cursor": "not-allowed"
-      },
-      "focus": {
-        "outline": "2px solid #2F82FF"
+      "primary": {
+        "background": "#2F82FF",
+        "text": "#FFFFFF",
+        "hover": {
+          "background": "#1C66E0"
+        },
+        "pressed": {
+          "background": "#174CBF"
+        },
+        "disabled": {
+          "background": "#3C3C46",
+          "text": "#888888"
+        }
       }
     },
-    "tabs": {
-      "focus": {
-        "outline": "2px solid #2F82FF"
-      }
-    },
-    "dropdowns": {
-      "hoverOption": {
-        "background": "#3A3D44"
-      }
+    "font": {
+      "family": "Inter, Segoe UI, Helvetica Neue, sans-serif",
+      "baseSize": "13px",
+      "weight": {
+        "regular": 400,
+        "medium": 500,
+        "bold": 600
+      },
+      "lineHeight": "1.5"
     }
   },
 
   "visualEffects": {
     "shadows": {
-      "cards": "0 4px 12px rgba(0, 0, 0, 0.25)",
-      "buttons": "none"
+      "cards": "0 4px 12px rgba(0, 0, 0, 0.25)"
     },
     "gradients": {
       "cardContainers": "linear-gradient(135deg, #2A2C32 0%, #1E1F24 100%)"
@@ -187,11 +142,24 @@
       "buttons": "8px",
       "tabItems": "6px",
       "dropdowns": "6px"
-    },
-    "hoverAnimations": {
-      "cards": "background-color 0.2s ease",
-      "buttons": "background-color 0.2s ease, transform 0.1s ease",
-      "rows": "background-color 0.2s ease"
+    }
+  },
+
+  "componentStates": {
+    "buttons": {
+      "hover": {
+        "backgroundDarken": "7%"
+      },
+      "pressed": {
+        "scale": "0.98"
+      },
+      "focus": {
+        "outline": "2px solid #2F82FF"
+      },
+      "disabled": {
+        "opacity": 0.5,
+        "cursor": "not-allowed"
+      }
     }
   },
 
@@ -200,6 +168,6 @@
     "doNotUseButtonBackgroundOn": ["text", "icon fills"],
     "doNotApplyShadowTo": ["text labels", "icons", "inline content"],
     "doNotUseHeaderBackgroundOn": ["cards", "modals", "popups"],
-    "doNotReplaceStatusIndicatorColor": "Use only #00D67F (enabled) or #FF4C4C (disabled) to indicate status."
+    "doNotReplaceStatusIndicatorColor": "Use only #00D67F or #FF4C4C"
   }
 }

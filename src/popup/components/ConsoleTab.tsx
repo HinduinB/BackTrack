@@ -1,8 +1,5 @@
-interface LogEntry {
-  timestamp: string;
-  level: 'info' | 'warn' | 'error';
-  message: string;
-}
+import { type LogEntry } from '../types';
+import { theme } from '../theme';
 
 const mockLogs: LogEntry[] = [
   { timestamp: '10:45:23', level: 'info', message: 'Request initiated to /api/users' },
@@ -11,37 +8,61 @@ const mockLogs: LogEntry[] = [
   { timestamp: '10:45:26', level: 'info', message: 'Cache updated successfully' },
 ];
 
+function getLogLevelColor(level: LogEntry['level']): string {
+  switch (level) {
+    case 'error':
+      return theme.colors.status.error;
+    case 'warn':
+      return theme.colors.status.warning;
+    case 'info':
+    default:
+      return theme.colors.text.secondary;
+  }
+}
+
+function getLogLevelBackground(level: LogEntry['level']): string {
+  switch (level) {
+    case 'error':
+      return `${theme.colors.status.error}33`;
+    case 'warn':
+      return `${theme.colors.status.warning}33`;
+    case 'info':
+    default:
+      return `${theme.colors.text.secondary}33`;
+  }
+}
+
 export function ConsoleTab() {
   return (
-    <div style={{ 
-      padding: '8px',
-      height: '100%',
-      overflowY: 'auto',
-      fontFamily: 'monospace',
-      fontSize: '12px'
-    }}>
+    <div
+      style={{
+        padding: theme.spacing.sm,
+        height: '100%',
+        overflowY: 'auto',
+        fontFamily: theme.typography.monoFamily,
+        fontSize: theme.typography.sizes.sm,
+      }}
+    >
       {mockLogs.map((log, index) => (
         <div
           key={index}
           style={{
-            padding: '4px 8px',
-            borderBottom: '1px solid #2A2C32',
-            color: log.level === 'error' ? '#FF4C4C' : 
-                   log.level === 'warn' ? '#FFB020' : 
-                   '#C5C5D2'
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+            borderBottom: `1px solid ${theme.colors.border.primary}`,
+            color: getLogLevelColor(log.level),
           }}
         >
-          <span style={{ color: '#888888' }}>{log.timestamp}</span>
+          <span style={{ color: theme.colors.text.disabled }}>{log.timestamp}</span>
           {' '}
-          <span style={{ 
-            textTransform: 'uppercase',
-            padding: '2px 4px',
-            borderRadius: '4px',
-            fontSize: '10px',
-            background: log.level === 'error' ? '#FF4C4C33' : 
-                       log.level === 'warn' ? '#FFB02033' : 
-                       '#C5C5D233'
-          }}>
+          <span
+            style={{
+              textTransform: 'uppercase',
+              padding: `2px ${theme.spacing.xs}`,
+              borderRadius: theme.borderRadius.sm,
+              fontSize: theme.typography.sizes.xs,
+              background: getLogLevelBackground(log.level),
+            }}
+          >
             {log.level}
           </span>
           {' '}
