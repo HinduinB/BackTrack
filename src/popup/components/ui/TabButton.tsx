@@ -1,5 +1,6 @@
 import { type ReactNode } from 'react';
 import { theme } from '../../theme';
+import { RippleButton } from '../magicui/RippleButton';
 
 export interface TabButtonProps {
   children: ReactNode;
@@ -9,8 +10,9 @@ export interface TabButtonProps {
 
 export function TabButton({ children, isActive, onClick }: TabButtonProps) {
   return (
-    <button
+    <RippleButton
       onClick={onClick}
+      rippleColor={isActive ? "rgba(139, 92, 246, 0.3)" : "rgba(255, 255, 255, 0.2)"}
       style={{
         padding: `${theme.spacing.sm} ${theme.spacing.md}`,
         fontSize: theme.typography.sizes.base,
@@ -37,6 +39,6 @@ export function TabButton({ children, isActive, onClick }: TabButtonProps) {
       }}
     >
       {children}
-    </button>
+    </RippleButton>
   );
 } 

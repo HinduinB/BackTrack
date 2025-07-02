@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { type TabType, type ExportFormat } from '../types';
 import { theme } from '../theme';
-import { Button } from './ui/Button';
+import { RippleButton as Button } from './magicui/RippleButton';
 import { Dropdown, type DropdownItem } from './ui/Dropdown';
 import { ChevronDownIcon } from './ui/Icons';
 

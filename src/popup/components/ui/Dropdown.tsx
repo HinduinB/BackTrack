@@ -5,6 +5,7 @@ export interface DropdownItem {
   key: string;
   label: string;
   onClick: () => void;
+  color?: string; // Optional color for status code items
 }
 
 export interface DropdownProps {
@@ -47,11 +48,21 @@ export function Dropdown({ trigger, items, isOpen, onToggle, onClose }: Dropdown
             background: theme.colors.background.secondary,
             borderRadius: theme.borderRadius.md,
             boxShadow: theme.shadows.md,
-            overflow: 'hidden',
-            zIndex: 10,
+            zIndex: 1000,
             minWidth: '140px',
+            maxHeight: '200px',
+            overflowY: 'auto',
+            // Hide scrollbar but keep functionality
+            scrollbarWidth: 'none', // Firefox
+            msOverflowStyle: 'none', // IE/Edge
           }}
+          className="dropdown-scroll"
         >
+          <style>{`
+            .dropdown-scroll::-webkit-scrollbar {
+              display: none; /* Chrome, Safari */
+            }
+          `}</style>
           {items.map((item, index) => (
             <button
               key={item.key}
@@ -63,15 +74,22 @@ export function Dropdown({ trigger, items, isOpen, onToggle, onClose }: Dropdown
                 border: 'none',
                 borderBottom: index < items.length - 1 ? `1px solid ${theme.colors.border.tertiary}` : 'none',
                 background: 'transparent',
-                color: theme.colors.text.primary,
-                fontSize: theme.typography.sizes.base,
+                color: item.color || theme.colors.text.secondary,
+                fontSize: theme.typography.sizes.sm,
+                fontWeight: theme.typography.weights.medium,
                 textAlign: 'left',
                 cursor: 'pointer',
                 outline: 'none',
                 transition: theme.transitions.fast,
               }}
-              onMouseEnter={e => e.currentTarget.style.background = theme.colors.background.hover}
-              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = theme.colors.background.hover;
+                e.currentTarget.style.color = item.color || theme.colors.text.secondary;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = item.color || theme.colors.text.secondary;
+              }}
             >
               {item.label}
             </button>
