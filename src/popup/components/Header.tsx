@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { theme } from '../theme';
+import HeaderLogoGreenSvg from '../../assets/HeaderLogo-green.svg';
+import HeaderLogoRedSvg from '../../assets/HeaderLogo-red.svg';
 
 interface HeaderProps {
   requestCount?: number;
@@ -11,14 +13,45 @@ interface HeaderProps {
 // Persistent state management
 const STORAGE_KEY = 'backtrack-enabled';
 
+// Chrome extension icon management
+const updateExtensionIcon = async (enabled: boolean) => {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setIcon) {
+      const iconColor = enabled ? 'green' : 'red';
+      const iconPath = {
+        16: `icons/backtrack-${iconColor}-16.png`,
+        32: `icons/backtrack-${iconColor}-32.png`,
+        48: `icons/backtrack-${iconColor}-48.png`,
+        128: `icons/backtrack-${iconColor}-128.png`,
+      };
+      
+      await chrome.action.setIcon({ path: iconPath });
+      console.log(`Extension icon updated to ${iconColor}`);
+    }
+  } catch (error) {
+    console.log('Extension icon update failed:', error);
+  }
+};
+
 const saveTrackingState = (enabled: boolean) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(enabled));
-  // TODO: Also update extension icon via background script
-  console.log('BackTrack tracking:', enabled ? 'ENABLED' : 'DISABLED');
+  try {
+    // Use Chrome storage for better synchronization with background script
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      chrome.storage.local.set({ [STORAGE_KEY]: JSON.stringify(enabled) });
+    } else {
+      // Fallback to localStorage for dev environment
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(enabled));
+    }
+    updateExtensionIcon(enabled);
+    console.log('BackTrack tracking:', enabled ? 'ENABLED' : 'DISABLED');
+  } catch (error) {
+    console.error('Failed to save tracking state:', error);
+  }
 };
 
 const loadTrackingState = (): boolean => {
   try {
+    // For synchronous loading, use localStorage with Chrome storage sync in background
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : true; // Default to enabled
   } catch {
@@ -26,14 +59,53 @@ const loadTrackingState = (): boolean => {
   }
 };
 
+// Async Chrome storage loader for initialization
+const loadTrackingStateAsync = async (): Promise<boolean> => {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      const result = await chrome.storage.local.get(STORAGE_KEY);
+      const chromeValue = result[STORAGE_KEY] !== undefined ? JSON.parse(result[STORAGE_KEY]) : true;
+      // Sync to localStorage for immediate access
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chromeValue));
+      return chromeValue;
+    } else {
+      return loadTrackingState();
+    }
+  } catch {
+    return loadTrackingState();
+  }
+};
+
 export function Header({ requestCount = 0, errorCount = 0, isActive = true, onToggleActive }: HeaderProps) {
   const [internalActive, setInternalActive] = useState(loadTrackingState);
+  const [isDetachedWindow, setIsDetachedWindow] = useState(false);
 
   // Load persistent state on mount
   useEffect(() => {
-    const savedState = loadTrackingState();
-    setInternalActive(savedState);
-    onToggleActive?.(savedState);
+    const initializeState = async () => {
+      const savedState = await loadTrackingStateAsync();
+      setInternalActive(savedState);
+      onToggleActive?.(savedState);
+      
+      // Update extension icon to match current state
+      updateExtensionIcon(savedState);
+    };
+
+    // Check if we're in a detached window
+    const checkWindowType = async () => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.windows) {
+          const currentWindow = await chrome.windows.getCurrent();
+          setIsDetachedWindow(currentWindow.type === 'popup');
+        }
+      } catch (err) {
+        // Not in extension context or no permission
+        setIsDetachedWindow(false);
+      }
+    };
+    
+    initializeState();
+    checkWindowType();
   }, [onToggleActive]);
 
   // Use internal state if no external state provided
@@ -212,130 +284,79 @@ export function Header({ requestCount = 0, errorCount = 0, isActive = true, onTo
         </div>
       </div>
 
-      {/* Right Side - Logo */}
+      {/* Right Side - Controls and Logo */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: theme.spacing.xs,
+          gap: theme.spacing.md,
         }}
       >
-        {/* BackTrack Logo */}
-        <div
-          style={{
-            width: '32px',
-            height: '32px',
-            borderRadius: theme.borderRadius.md,
-            background: trackingActive 
-              ? 'linear-gradient(135deg, rgba(0, 214, 127, 0.1), rgba(47, 130, 255, 0.1))'
-              : 'linear-gradient(135deg, rgba(255, 76, 76, 0.1), rgba(107, 114, 128, 0.1))',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            border: `1px solid ${trackingActive ? 'rgba(47, 130, 255, 0.3)' : 'rgba(255, 76, 76, 0.3)'}`,
-            boxShadow: trackingActive 
-              ? '0 4px 12px rgba(47, 130, 255, 0.2)' 
-              : '0 4px 12px rgba(255, 76, 76, 0.2)',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          }}
-        >
-          <svg width="20" height="20" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id={`gradient-${trackingActive ? 'active' : 'inactive'}`} x1="0%" y1="0%" x2="100%" y2="100%">
-                {trackingActive ? (
-                  <>
-                    <stop offset="0%" style={{stopColor:'#00D67F', stopOpacity:1}} />
-                    <stop offset="50%" style={{stopColor:'#2F82FF', stopOpacity:1}} />
-                    <stop offset="100%" style={{stopColor:'#8B5CF6', stopOpacity:1}} />
-                  </>
-                ) : (
-                  <>
-                    <stop offset="0%" style={{stopColor:'#6B7280', stopOpacity:1}} />
-                    <stop offset="50%" style={{stopColor:'#EF4444', stopOpacity:1}} />
-                    <stop offset="100%" style={{stopColor:'#DC2626', stopOpacity:1}} />
-                  </>
-                )}
-              </linearGradient>
-            </defs>
-            
-            {/* Bold "BT" Text */}
-            <text x="64" y="58" 
-                  fontFamily="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
-                  fontSize="36" 
-                  fontWeight="800" 
-                  textAnchor="middle" 
-                  fill={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`}
-                  letterSpacing="-1px"
-                  opacity={trackingActive ? 1 : 0.8}>BT</text>
-            
-            {/* Arrows underneath when active */}
-            {trackingActive ? (
-              <>
-                <path d="M 42 78 L 52 78 L 52 75 L 58 81 L 52 87 L 52 84 L 42 84 Z" 
-                      fill={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      opacity="0.9"/>
-                <path d="M 58 78 L 68 78 L 68 75 L 74 81 L 68 87 L 68 84 L 58 84 Z" 
-                      fill={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      opacity="0.7"/>
-                <path d="M 74 78 L 84 78 L 84 75 L 90 81 L 84 87 L 84 84 L 74 84 Z" 
-                      fill={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      opacity="0.5"/>
-              </>
-            ) : (
-              <>
-                {/* Pause bars */}
-                <rect x="54" y="75" width="4" height="12" 
-                      fill={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      opacity="0.7"/>
-                <rect x="60" y="75" width="4" height="12" 
-                      fill={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      opacity="0.7"/>
-                {/* Broken arrows */}
-                <path d="M 66 78 L 72 78 L 72 75" 
-                      stroke={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      strokeWidth="2" 
-                      fill="none"
-                      opacity="0.5"
-                      strokeDasharray="2,2"/>
-                <path d="M 74 78 L 80 78 L 80 75" 
-                      stroke={`url(#gradient-${trackingActive ? 'active' : 'inactive'})`} 
-                      strokeWidth="2" 
-                      fill="none"
-                      opacity="0.3"
-                      strokeDasharray="2,2"/>
-              </>
-            )}
-          </svg>
-        </div>
-        
-        {/* Brand Text */}
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'flex-end',
-          }}
-        >
-          <span
-            style={{
-              fontSize: theme.typography.sizes.sm,
-              fontWeight: theme.typography.weights.semibold,
-              color: theme.colors.text.primary,
-              lineHeight: 1,
+        {/* Detach Button - Only show if not already detached */}
+        {!isDetachedWindow && (
+          <button
+            onClick={() => {
+              // Create detached window with minimal chrome
+              chrome.windows.create({
+                url: chrome.runtime.getURL('index.html') + '?detached=true',
+                type: 'popup',
+                width: 820,
+                height: 640,
+                focused: true,
+                left: Math.round((screen.width - 820) / 2),
+                top: Math.round((screen.height - 640) / 2)
+              }).then(() => {
+                // Close current popup
+                window.close();
+              }).catch(_err => {
+                console.log('Detach feature requires Chrome extension APIs');
+              });
             }}
-          >
-            BackTrack
-          </span>
-          <span
             style={{
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: `1px solid rgba(255, 255, 255, 0.2)`,
+              borderRadius: theme.borderRadius.md,
+              color: theme.colors.text.secondary,
               fontSize: theme.typography.sizes.xs,
-              color: theme.colors.text.muted,
-              lineHeight: 1,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+              e.currentTarget.style.color = theme.colors.text.primary;
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.color = theme.colors.text.secondary;
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
-            Network Monitor
-          </span>
-        </div>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"/>
+              <path d="M20 2H4c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 18H4V4h16v16z"/>
+            </svg>
+            Detach
+          </button>
+        )}
+
+        {/* BackTrack Logo */}
+        <img
+          src={trackingActive ? HeaderLogoGreenSvg : HeaderLogoRedSvg}
+          alt="BackTrack Logo"
+          style={{
+            width: '50px',
+            height: '50px',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            filter: trackingActive 
+              ? 'drop-shadow(0 0 8px rgba(0, 214, 127, 0.4))'
+              : 'drop-shadow(0 0 8px rgba(255, 76, 76, 0.4))',
+          }}
+        />
       </div>
     </header>
   );

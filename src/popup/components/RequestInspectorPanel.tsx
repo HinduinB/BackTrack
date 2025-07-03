@@ -37,7 +37,7 @@ function getStatusGradient(statusCode: number): { background: string; dotColor: 
     return {
       background: 'linear-gradient(135deg, rgba(47, 130, 255, 0.15) 0%, rgba(47, 130, 255, 0.05) 50%, rgba(139, 92, 246, 0.1) 100%)',
       dotColor: 'rgba(47, 130, 255, 0.4)',
-      tabIndicator: 'linear-gradient(90deg, #2F82FF, #8b5cf6)'
+      tabIndicator: 'linear-gradient(90deg, #8B5CF6, #A855F7)'
     };
   } else if (statusCode >= 400 && statusCode < 500) {
     // Client Error - Orange gradient

@@ -1,4 +1,4 @@
-import { StrictMode, useState } from 'react'
+import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
 import { type TabType, type ExportFormat } from './types'
@@ -8,7 +8,7 @@ import { TabNavigation } from './components/TabNavigation'
 import { ConsoleTab } from './components/ConsoleTab'
 import { NetworkTab } from './components/NetworkTab'
 import { SettingsTab } from './components/SettingsTab'
-import { BorderBeam } from './components/magicui/BorderBeam'
+
 import { TooltipProvider } from './components/shadcn/tooltip'
 
 function Popup() {
@@ -17,6 +17,63 @@ function Popup() {
   const [networkErrorsCount, setNetworkErrorsCount] = useState(3) // Initial mock error count
   const [addMockDataFunction, setAddMockDataFunction] = useState<(() => void) | null>(null)
   const [isBackTrackActive, setIsBackTrackActive] = useState(true)
+  
+  // Check if we're in detached mode
+  const isDetached = new URLSearchParams(window.location.search).get('detached') === 'true'
+  
+  // Set document title and favicon for detached mode
+  useEffect(() => {
+    if (isDetached) {
+      document.title = 'BackTrack - Network Monitor'
+      
+      // Remove existing favicon links
+      const existingIcons = document.querySelectorAll("link[rel*='icon']")
+      existingIcons.forEach(icon => icon.remove())
+      
+      // Add new favicon links with white logo on dark background
+      const head = document.head
+      
+      // Main favicon
+      const favicon = document.createElement('link')
+      favicon.rel = 'icon'
+      favicon.type = 'image/png'
+      favicon.setAttribute('sizes', '32x32')
+      favicon.href = '/icons/backtrack-32.png?' + Date.now() // Cache buster
+      head.appendChild(favicon)
+      
+      // Shortcut icon
+      const shortcut = document.createElement('link')
+      shortcut.rel = 'shortcut icon'
+      shortcut.href = '/icons/backtrack-32.png?' + Date.now() // Cache buster
+      head.appendChild(shortcut)
+      
+      // Alternative sizes
+      const favicon16 = document.createElement('link')
+      favicon16.rel = 'icon'
+      favicon16.type = 'image/png'
+      favicon16.setAttribute('sizes', '16x16')
+      favicon16.href = '/icons/backtrack-16.png?' + Date.now()
+      head.appendChild(favicon16)
+      
+      const favicon128 = document.createElement('link')
+      favicon128.rel = 'apple-touch-icon'
+      favicon128.setAttribute('sizes', '128x128')
+      favicon128.href = '/icons/backtrack-128.png?' + Date.now()
+      head.appendChild(favicon128)
+      
+      // Force browser to reload favicon
+      setTimeout(() => {
+        const link = document.querySelector("link[rel*='icon'][sizes='32x32']") as HTMLLinkElement
+        if (link) {
+          const href = link.href
+          link.href = ''
+          setTimeout(() => {
+            link.href = href
+          }, 10)
+        }
+      }, 100)
+    }
+  }, [isDetached])
 
   // Mock data to check if Network tab has data
   const hasNetworkData = networkRequestsCount > 0
@@ -35,8 +92,14 @@ function Popup() {
       <div
         style={{
           fontFamily: theme.typography.fontFamily,
-          width: '800px',
-          background: theme.colors.background.primary,
+          width: isDetached ? '100vw' : '800px',
+          height: isDetached ? '100vh' : 'auto',
+          background: isDetached 
+            ? `linear-gradient(135deg, ${theme.colors.background.primary} 0%, rgba(20, 21, 26, 0.95) 100%)`
+            : theme.colors.background.primary,
+          overflow: isDetached ? 'hidden' : 'visible',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <Header 
@@ -47,24 +110,47 @@ function Popup() {
         />
 
         {/* Main Content */}
-        <main style={{ padding: theme.spacing.lg }}>
+        <main style={{ 
+          padding: isDetached 
+            ? `${theme.spacing.lg} ${theme.spacing.lg} ${theme.spacing.lg}`
+            : `${theme.spacing.lg} ${theme.spacing.lg} ${theme.spacing.xl}`,
+          background: isDetached
+            ? 'transparent'
+            : `linear-gradient(135deg, ${theme.colors.background.primary} 0%, rgba(24, 25, 30, 0.95) 100%)`,
+          flex: isDetached ? '1' : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
           {/* Card Container */}
           <div
             style={{
               position: 'relative',
-              background: theme.colors.background.secondary,
-              borderRadius: theme.borderRadius.lg,
+              background: `linear-gradient(135deg, ${theme.colors.background.cardElevated} 0%, ${theme.colors.background.card} 100%)`,
+              borderRadius: isDetached ? theme.borderRadius.md : theme.borderRadius.lg,
               overflow: 'hidden',
-              boxShadow: theme.shadows.sm,
+              boxShadow: isDetached 
+                ? `${theme.shadows.xl}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`
+                : `${theme.shadows.floating}, inset 0 1px 0 rgba(255, 255, 255, 0.1)`,
+              border: `1px solid rgba(255, 255, 255, ${isDetached ? '0.06' : '0.08'})`,
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              transform: isDetached ? 'none' : 'translateY(-2px)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              flex: isDetached ? '1' : 'none',
+              display: 'flex',
+              flexDirection: 'column',
+              minHeight: isDetached ? '0' : 'auto',
             }}
+            onMouseEnter={!isDetached ? (e) => {
+              e.currentTarget.style.transform = 'translateY(-4px) scale(1.002)';
+              e.currentTarget.style.boxShadow = `${theme.shadows.floating}, 0 20px 80px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.12)`;
+            } : undefined}
+            onMouseLeave={!isDetached ? (e) => {
+              e.currentTarget.style.transform = 'translateY(-2px) scale(1)';
+              e.currentTarget.style.boxShadow = `${theme.shadows.floating}, inset 0 1px 0 rgba(255, 255, 255, 0.1)`;
+            } : undefined}
           >
-            <BorderBeam 
-                 duration={6}
-                 delay={3}
-                 size={400}
-                 borderWidth={2}
-                 className="from-transparent via-blue-500 to-transparent"
-            />
+            
             
             <TabNavigation
               activeTab={activeTab}
@@ -77,8 +163,11 @@ function Popup() {
             {/* Tab Content */}
             <div
               style={{
-                minHeight: '300px',
+                minHeight: isDetached ? '0' : '300px',
                 background: theme.colors.background.primary,
+                flex: isDetached ? '1' : 'none',
+                display: 'flex',
+                flexDirection: 'column',
               }}
             >
               {activeTab === 'Console' && <ConsoleTab />}

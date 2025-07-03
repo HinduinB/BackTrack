@@ -47,9 +47,9 @@ export function Button({
     switch (variant) {
       case 'primary':
         return {
-          background: theme.colors.primary.blue,
-          color: theme.colors.text.primary,
-          border: `1px solid ${theme.colors.primary.blue}`,
+                background: theme.colors.primary.purple,
+      color: theme.colors.text.primary,
+      border: `1px solid ${theme.colors.primary.purple}`,
         };
       case 'ghost':
         return {
@@ -71,7 +71,7 @@ export function Button({
     const target = e.currentTarget;
     switch (variant) {
       case 'primary':
-        target.style.background = theme.colors.primary.blue;
+        target.style.background = theme.colors.primary.purple;
         target.style.opacity = '0.9';
         break;
       case 'ghost':
@@ -90,7 +90,7 @@ export function Button({
     const target = e.currentTarget;
     switch (variant) {
       case 'primary':
-        target.style.background = theme.colors.primary.blue;
+        target.style.background = theme.colors.primary.purple;
         target.style.opacity = '1';
         break;
       case 'ghost':

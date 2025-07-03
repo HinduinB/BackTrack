@@ -255,7 +255,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
       case '3xx': return getStatusColor(300);
       case '4xx': return getStatusColor(400);
       case '5xx': return getStatusColor(500);
-      default: return theme.colors.primary.blue;
+      default: return theme.colors.primary.purple;
     }
   };
 
@@ -495,7 +495,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
                     }
                     style={{
                       ...(methodFilter && {
-                        background: theme.colors.primary.blue,
+                        background: theme.colors.primary.purple,
                         color: theme.colors.text.primary,
                       })
                     }}

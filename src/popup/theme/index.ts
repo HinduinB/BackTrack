@@ -2,25 +2,28 @@ export const theme = {
   colors: {
     primary: {
       blue: '#007ACC',
+      purple: '#8B5CF6',
       green: '#00D67F',
     },
     status: {
       success: '#00D67F',
-      info: '#2F82FF',
+      info: '#8B5CF6',
       warning: '#FFB020',
       error: '#FF4C4C',
     },
     background: {
-      primary: '#1E1F24',
+      primary: '#1A1B20',
       secondary: '#2A2C32',
       tertiary: '#2C2D34',
       hover: '#3A3D44',
+      card: '#2F3138',
+      cardElevated: '#353842',
     },
     border: {
       primary: '#2A2C32',
       secondary: '#3A3D44',
       tertiary: '#2F3138',
-      focus: '#007ACC',
+      focus: '#8B5CF6',
     },
     text: {
       primary: '#FFFFFF',
@@ -66,6 +69,9 @@ export const theme = {
   shadows: {
     sm: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
     md: '0 4px 12px rgba(0,0,0,0.25)',
+    lg: '0 8px 32px rgba(0, 0, 0, 0.35), 0 4px 16px rgba(0, 0, 0, 0.25)',
+    xl: '0 12px 48px rgba(0, 0, 0, 0.45), 0 8px 24px rgba(0, 0, 0, 0.35)',
+    floating: '0 16px 64px rgba(0, 0, 0, 0.5), 0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2)',
   },
   
   transitions: {

@@ -67,7 +67,7 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
                 right: 0,
                 height: '1px',
                 background: isSelected 
-                  ? `linear-gradient(90deg, transparent, ${theme.colors.primary.blue}, transparent)`
+                  ? `linear-gradient(90deg, transparent, ${theme.colors.primary.purple}, transparent)`
                   : 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.1), transparent)',
                 opacity: isSelected ? 1 : 0.5,
               }}

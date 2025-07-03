@@ -20,11 +20,11 @@ export default defineManifest({
     },
   ],
   icons: {
-    16: 'icons/placeholder-16.png',
-    32: 'icons/placeholder-32.png',
-    48: 'icons/placeholder-48.png',
-    128: 'icons/placeholder-128.png',
+    16: 'icons/backtrack-16.png',
+    32: 'icons/backtrack-32.png',
+    48: 'icons/backtrack-48.png',
+    128: 'icons/backtrack-128.png',
   },
-  permissions: ['storage', 'scripting', 'activeTab', 'webRequest', 'webRequestBlocking'],
+  permissions: ['storage', 'scripting', 'activeTab', 'webRequest', 'webRequestBlocking', 'windows'],
   host_permissions: ['<all_urls>'],
 }); 

@@ -93,7 +93,7 @@ export function Dropdown({ trigger, items, isOpen, onToggle, onClose }: Dropdown
               }}
               onFocus={e => {
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                e.currentTarget.style.outline = `2px solid ${theme.colors.primary.blue}`;
+                e.currentTarget.style.outline = `2px solid ${theme.colors.primary.purple}`;
                 e.currentTarget.style.outlineOffset = '2px';
               }}
               onBlur={e => {

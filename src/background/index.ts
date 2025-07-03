@@ -4,8 +4,54 @@
 // Handles background network logging and communication with popup UI.
 // See scope.md for architecture and requirements.
 
-// Placeholder background service worker for BackTrack Chrome Extension
-// You can add listeners and logic here as needed.
+// Extension icon management
+const STORAGE_KEY = 'backtrack-enabled';
+
+async function updateExtensionIcon(enabled: boolean) {
+  try {
+    const iconColor = enabled ? 'green' : 'red';
+    const iconPath = {
+      16: `icons/backtrack-${iconColor}-16.png`,
+      32: `icons/backtrack-${iconColor}-32.png`,
+      48: `icons/backtrack-${iconColor}-48.png`,
+      128: `icons/backtrack-${iconColor}-128.png`,
+    };
+    
+    await chrome.action.setIcon({ path: iconPath });
+    console.log(`BackTrack: Extension icon updated to ${iconColor}`);
+  } catch (error) {
+    console.error('BackTrack: Extension icon update failed:', error);
+  }
+}
+
+async function getTrackingState(): Promise<boolean> {
+  try {
+    const result = await chrome.storage.local.get(STORAGE_KEY);
+    return result[STORAGE_KEY] !== undefined ? JSON.parse(result[STORAGE_KEY]) : true; // Default to enabled
+  } catch {
+    return true;
+  }
+}
+
+// Initialize extension icon on startup
+chrome.runtime.onStartup.addListener(async () => {
+  const enabled = await getTrackingState();
+  await updateExtensionIcon(enabled);
+});
+
+// Initialize extension icon when extension is installed or enabled
+chrome.runtime.onInstalled.addListener(async () => {
+  const enabled = await getTrackingState();
+  await updateExtensionIcon(enabled);
+});
+
+// Listen for storage changes to update icon
+chrome.storage.onChanged.addListener(async (changes, area) => {
+  if (area === 'local' && changes[STORAGE_KEY]) {
+    const enabled = JSON.parse(changes[STORAGE_KEY].newValue);
+    await updateExtensionIcon(enabled);
+  }
+});
 
 type RequestEntry = {
   id: string;
