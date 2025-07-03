@@ -36,6 +36,8 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
         <div style={{ width: '50px', flexShrink: 0 }}>Status</div>
         <div style={{ width: '60px', flexShrink: 0 }}>Method</div>
         <div style={{ flex: 1, minWidth: 0 }}>Name</div>
+        <div style={{ width: '50px', flexShrink: 0 }}>Type</div>
+        <div style={{ width: '100px', flexShrink: 0 }}>Domain</div>
         <div style={{ width: '60px', flexShrink: 0, textAlign: 'right' }}>Size</div>
         <div style={{ width: '60px', flexShrink: 0, textAlign: 'right' }}>Time</div>
       </div>
@@ -143,8 +145,37 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
               }}
+              title={request.url}
             >
               {request.name}
+            </div>
+
+            {/* Type */}
+            <div 
+              style={{ 
+                width: '50px', 
+                flexShrink: 0,
+                color: theme.colors.text.muted,
+                fontSize: '10px',
+                fontWeight: theme.typography.weights.medium,
+              }}
+            >
+              {request.type}
+            </div>
+
+            {/* Domain */}
+            <div 
+              style={{ 
+                width: '100px', 
+                flexShrink: 0,
+                color: theme.colors.text.muted,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={request.domain}
+            >
+              {request.domain}
             </div>
 
             {/* Size */}
@@ -156,7 +187,7 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
                 color: theme.colors.text.muted,
               }}
             >
-              1.9 kB
+              {request.size || '-'}
             </div>
 
             {/* Time */}

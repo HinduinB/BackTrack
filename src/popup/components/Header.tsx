@@ -6,89 +6,45 @@ import HeaderLogoRedSvg from '../../assets/HeaderLogo-red.svg';
 interface HeaderProps {
   requestCount?: number;
   errorCount?: number;
-  isActive?: boolean;
   onToggleActive?: (active: boolean) => void;
 }
 
-// Persistent state management
-const STORAGE_KEY = 'backtrack-enabled';
+// Persistent state management through Chrome storage only
 
-// Chrome extension icon management
-const updateExtensionIcon = async (enabled: boolean) => {
-  try {
-    if (typeof chrome !== 'undefined' && chrome.action && chrome.action.setIcon) {
-      const iconColor = enabled ? 'green' : 'red';
-      const iconPath = {
-        16: `icons/backtrack-${iconColor}-16.png`,
-        32: `icons/backtrack-${iconColor}-32.png`,
-        48: `icons/backtrack-${iconColor}-48.png`,
-        128: `icons/backtrack-${iconColor}-128.png`,
-      };
-      
-      await chrome.action.setIcon({ path: iconPath });
-      console.log(`Extension icon updated to ${iconColor}`);
-    }
-  } catch (error) {
-    console.log('Extension icon update failed:', error);
-  }
-};
 
-const saveTrackingState = (enabled: boolean) => {
-  try {
-    // Use Chrome storage for better synchronization with background script
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      chrome.storage.local.set({ [STORAGE_KEY]: JSON.stringify(enabled) });
-    } else {
-      // Fallback to localStorage for dev environment
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(enabled));
-    }
-    updateExtensionIcon(enabled);
-    console.log('BackTrack tracking:', enabled ? 'ENABLED' : 'DISABLED');
-  } catch (error) {
-    console.error('Failed to save tracking state:', error);
-  }
-};
 
-const loadTrackingState = (): boolean => {
-  try {
-    // For synchronous loading, use localStorage with Chrome storage sync in background
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : true; // Default to enabled
-  } catch {
-    return true;
-  }
-};
 
-// Async Chrome storage loader for initialization
-const loadTrackingStateAsync = async (): Promise<boolean> => {
-  try {
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      const result = await chrome.storage.local.get(STORAGE_KEY);
-      const chromeValue = result[STORAGE_KEY] !== undefined ? JSON.parse(result[STORAGE_KEY]) : true;
-      // Sync to localStorage for immediate access
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(chromeValue));
-      return chromeValue;
-    } else {
-      return loadTrackingState();
-    }
-  } catch {
-    return loadTrackingState();
-  }
-};
 
-export function Header({ requestCount = 0, errorCount = 0, isActive = true, onToggleActive }: HeaderProps) {
-  const [internalActive, setInternalActive] = useState(loadTrackingState);
+export function Header({ requestCount = 0, errorCount = 0, onToggleActive }: HeaderProps) {
+  // Start with null to indicate unloaded state
+  const [internalActive, setInternalActive] = useState<boolean | null>(null);
   const [isDetachedWindow, setIsDetachedWindow] = useState(false);
 
-  // Load persistent state on mount
+  // Load state immediately and synchronously when possible
   useEffect(() => {
-    const initializeState = async () => {
-      const savedState = await loadTrackingStateAsync();
-      setInternalActive(savedState);
-      onToggleActive?.(savedState);
-      
-      // Update extension icon to match current state
-      updateExtensionIcon(savedState);
+    let mounted = true;
+    
+    const loadState = async () => {
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage) {
+          // Access Chrome storage directly
+          const result = await chrome.storage.local.get('backtrack-enabled');
+          const state = result['backtrack-enabled'] !== undefined ? JSON.parse(result['backtrack-enabled']) : true;
+          
+          if (mounted) {
+            setInternalActive(state);
+          }
+        } else {
+          // Fallback for development environment
+          if (mounted) {
+            setInternalActive(true);
+          }
+        }
+              } catch (error) {
+          if (mounted) {
+            setInternalActive(true); // Default to enabled on error
+          }
+        }
     };
 
     // Check if we're in a detached window
@@ -96,25 +52,40 @@ export function Header({ requestCount = 0, errorCount = 0, isActive = true, onTo
       try {
         if (typeof chrome !== 'undefined' && chrome.windows) {
           const currentWindow = await chrome.windows.getCurrent();
-          setIsDetachedWindow(currentWindow.type === 'popup');
+          if (mounted) {
+            setIsDetachedWindow(currentWindow.type === 'popup');
+          }
         }
       } catch (err) {
         // Not in extension context or no permission
-        setIsDetachedWindow(false);
+        if (mounted) {
+          setIsDetachedWindow(false);
+        }
       }
     };
     
-    initializeState();
+    loadState();
     checkWindowType();
-  }, [onToggleActive]);
+    
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
-  // Use internal state if no external state provided
-  const trackingActive = isActive !== undefined ? isActive : internalActive;
+  // Use loaded state, fallback to false (disabled) while loading to prevent green flash
+  const trackingActive = internalActive !== null ? internalActive : false;
 
-  const handleToggle = () => {
+  const handleToggle = async () => {
     const newState = !trackingActive;
     setInternalActive(newState);
-    saveTrackingState(newState);
+    
+    // Save state to Chrome storage directly
+    try {
+      await chrome.storage.local.set({ 'backtrack-enabled': JSON.stringify(newState) });
+    } catch (error) {
+      console.error('BackTrack: Failed to save tracking state:', error);
+    }
+    
     onToggleActive?.(newState);
   };
 

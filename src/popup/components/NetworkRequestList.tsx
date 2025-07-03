@@ -126,20 +126,50 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
                 {request.method}
               </div>
 
-              {/* Path and Duration */}
+              {/* Name, Domain, Type and Duration */}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
                     fontSize: theme.typography.sizes.sm,
                     fontWeight: theme.typography.weights.medium,
                     color: theme.colors.text.primary,
-                    marginBottom: '0px',
+                    marginBottom: '1px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
                   }}
                 >
-                  {request.name}
+                  <span 
+                    style={{ 
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                    }}
+                    title={request.url}
+                  >
+                    {request.name}
+                  </span>
+                  {request.type && (
+                    <span
+                      style={{
+                        fontSize: '10px',
+                        fontWeight: theme.typography.weights.medium,
+                        color: theme.colors.text.muted,
+                        background: 'rgba(139, 92, 246, 0.15)',
+                        border: '1px solid rgba(139, 92, 246, 0.3)',
+                        borderRadius: '3px',
+                        padding: '1px 4px',
+                        flexShrink: 0,
+                        lineHeight: '1',
+                      }}
+                    >
+                      {request.type}
+                    </span>
+                  )}
                 </div>
                 <div
                   style={{
@@ -148,11 +178,25 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
                     display: 'flex',
                     alignItems: 'center',
                     gap: '2px',
+                    overflow: 'hidden',
                   }}
                 >
-                  <span>{request.duration}</span>
-                  <span style={{ opacity: 0.6 }}>•</span>
-                  <span>{request.timestamp.split(' ')[1]}</span>
+                  <span 
+                    style={{ 
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                      minWidth: 0,
+                      maxWidth: '120px',
+                    }}
+                    title={request.domain}
+                  >
+                    {request.domain}
+                  </span>
+                  <span style={{ opacity: 0.6, flexShrink: 0 }}>•</span>
+                  <span style={{ flexShrink: 0 }}>{request.duration}</span>
+                  <span style={{ opacity: 0.6, flexShrink: 0 }}>•</span>
+                  <span style={{ flexShrink: 0 }}>{request.timestamp.split(' ')[1]}</span>
                 </div>
               </div>
 
@@ -192,4 +236,4 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
       })}
     </div>
   );
-} 
+}

@@ -16,7 +16,6 @@ function Popup() {
   const [networkRequestsCount, setNetworkRequestsCount] = useState(7) // Initial mock count
   const [networkErrorsCount, setNetworkErrorsCount] = useState(3) // Initial mock error count
   const [addMockDataFunction, setAddMockDataFunction] = useState<(() => void) | null>(null)
-  const [isBackTrackActive, setIsBackTrackActive] = useState(true)
   
   // Check if we're in detached mode
   const isDetached = new URLSearchParams(window.location.search).get('detached') === 'true'
@@ -105,8 +104,6 @@ function Popup() {
         <Header 
           requestCount={networkRequestsCount}
           errorCount={networkErrorsCount}
-          isActive={isBackTrackActive}
-          onToggleActive={setIsBackTrackActive}
         />
 
         {/* Main Content */}

@@ -16,6 +16,11 @@ export interface NetworkRequest {
     message: string;
     stack?: string;
   };
+  // Additional DevTools-like fields
+  url: string;        // Full URL for tooltip/inspector
+  domain: string;     // Host/domain name
+  type: string;       // Resource type (xhr, script, document, etc.)
+  size?: string;      // Response size if available
 }
 
 export interface LogEntry {

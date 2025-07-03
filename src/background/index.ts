@@ -18,7 +18,6 @@ async function updateExtensionIcon(enabled: boolean) {
     };
     
     await chrome.action.setIcon({ path: iconPath });
-    console.log(`BackTrack: Extension icon updated to ${iconColor}`);
   } catch (error) {
     console.error('BackTrack: Extension icon update failed:', error);
   }
@@ -28,7 +27,8 @@ async function getTrackingState(): Promise<boolean> {
   try {
     const result = await chrome.storage.local.get(STORAGE_KEY);
     return result[STORAGE_KEY] !== undefined ? JSON.parse(result[STORAGE_KEY]) : true; // Default to enabled
-  } catch {
+  } catch (error) {
+    console.error('BackTrack: getTrackingState error:', error);
     return true;
   }
 }
@@ -133,16 +133,16 @@ function pruneLogAndPersist() {
   saveLogToStorage();
 }
 
-chrome.runtime.onMessage.addListener(
-  (msg: any, _sender: chrome.runtime.MessageSender, _sendResponse: (response?: any) => void) => {
-    console.log('Received network request:', msg);
-    console.log('BackTrack: received message in background', msg);
-  }
-); 
 console.log('Background service worker loaded');
 
 chrome.webRequest.onCompleted.addListener(
-  (details) => {
+  async (details) => {
+    // Check if tracking is enabled before capturing requests
+    const isTrackingEnabled = await getTrackingState();
+    if (!isTrackingEnabled) {
+      return; // Skip capturing if tracking is disabled
+    }
+
     const id = `${details.requestId}-${details.timeStamp}`;
     const entry: RequestEntry = {
       id,
@@ -156,21 +156,76 @@ chrome.webRequest.onCompleted.addListener(
     };
     requestLog.set(id, entry);
     pruneLogAndPersist();
-    console.log('BackTrack: webRequest captured', entry);
+    // Only log non-extension requests to reduce noise
+    if (!details.url.includes('chrome-extension://')) {
+      console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, `(${requestLog.size} total)`);
+    }
   },
   { urls: ['<all_urls>'] }
 );
 
 /**
- * Message passing: Respond to popup requests for the current log.
+ * Message passing: Handle popup requests
  *
- * Message: { type: 'GET_LOG' }
- * Response: { log: RequestEntry[] } (sorted by time, newest first)
+ * Messages:
+ * - { type: 'GET_LOG' } -> Response: { log: RequestEntry[] } (sorted by time, newest first)
+ * - { type: 'CLEAR_LOG' } -> Response: { success: boolean }
+ * - { type: 'GET_TRACKING_STATE' } -> Response: { enabled: boolean }
+ * - { type: 'SET_TRACKING_STATE', enabled: boolean } -> Response: { success: boolean }
  */
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener(async (msg, _sender, sendResponse) => {
   if (msg && msg.type === 'GET_LOG') {
     const logArr = Array.from(requestLog.values()).sort((a, b) => b.timeStamp - a.timeStamp);
+    // Only log when we have data to avoid spam from frequent polling
+    if (logArr.length > 0) {
+      console.log('BackTrack: returning', logArr.length, 'requests to popup');
+    }
     sendResponse({ log: logArr });
     return true; // Indicates async response is possible
+  }
+  
+  if (msg && msg.type === 'CLEAR_LOG') {
+    console.log('BackTrack: CLEAR_LOG message received - clearing', requestLog.size, 'requests');
+    
+    // Clear the in-memory log
+    requestLog.clear();
+    
+    // Clear storage
+    chrome.storage.session.remove('requestLog').catch(() => {
+      // Fallback to local storage if session fails
+      chrome.storage.local.remove('requestLog').catch((err) => {
+        console.error('BackTrack: Failed to clear storage', err);
+      });
+    });
+    
+    console.log('BackTrack: Request log cleared by user - log size now:', requestLog.size);
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (msg && msg.type === 'GET_TRACKING_STATE') {
+    // Handle async operation properly
+    (async () => {
+      try {
+        const enabled = await getTrackingState();
+        sendResponse({ enabled });
+      } catch (error) {
+        console.error('BackTrack: Error in GET_TRACKING_STATE:', error);
+        sendResponse({ enabled: true }); // Fallback
+      }
+    })();
+    return true; // Keep the message channel open for async response
+  }
+
+  if (msg && msg.type === 'SET_TRACKING_STATE' && typeof msg.enabled === 'boolean') {
+    try {
+      await chrome.storage.local.set({ [STORAGE_KEY]: JSON.stringify(msg.enabled) });
+      await updateExtensionIcon(msg.enabled);
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error('BackTrack: Failed to set tracking state:', error);
+      sendResponse({ success: false, error: String(error) });
+    }
+    return true;
   }
 });
