@@ -18,9 +18,9 @@ export function StatusBadge({ status }: StatusBadgeProps) {
     <span
       style={{
         display: 'inline-block',
-        padding: '2px 6px',
+        padding: '1px 4px',
         borderRadius: theme.borderRadius.pill,
-        fontSize: theme.typography.sizes.sm,
+        fontSize: theme.typography.sizes.xs,
         fontWeight: theme.typography.weights.medium,
         background: `${color}33`,
         color,

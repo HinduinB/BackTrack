@@ -1,14 +1,16 @@
 import { useState, useEffect } from 'react';
-import { type NetworkRequest, type NetworkTabProps } from '../types';
+import { type NetworkRequest, type NetworkTabProps, type ViewDensity } from '../types';
 import { theme } from '../theme';
 import { RippleButton as Button } from './magicui/RippleButton';
 import { EmptyState } from './ui/EmptyState';
-import { ClearIcon, AddIcon, NetworkIcon, SearchIcon, FilterIcon, ChevronDownIcon, CloseIcon } from './ui/Icons';
+import { ClearIcon, NetworkIcon, SearchIcon, FilterIcon, ChevronDownIcon, CloseIcon, ListIcon, CardIcon } from './ui/Icons';
 import { Checkbox } from './shadcn/checkbox';
+import { Tooltip, TooltipTrigger, TooltipContent } from './shadcn/tooltip';
 import { Dropdown, type DropdownItem } from './ui/Dropdown';
 import { getStatusColor } from './ui/StatusBadge';
 import { NetworkRequestList } from './NetworkRequestList';
-import { NetworkRequestDetails } from './NetworkRequestDetails';
+import { NetworkRequestTable } from './NetworkRequestTable';
+import { RequestInspectorPanel } from './RequestInspectorPanel';
 
 const mockRequests: NetworkRequest[] = [
   { 
@@ -18,6 +20,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'GET',
     timestamp: '2024-03-20 10:45:20',
     duration: '0.3s',
+    viewed: false,
     requestHeaders: {
       'Accept': 'application/json',
       'Authorization': 'Bearer abc123...'
@@ -38,6 +41,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'POST',
     timestamp: '2024-03-20 10:45:21',
     duration: '0.5s',
+    viewed: false,
     requestHeaders: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer abc123...'
@@ -60,6 +64,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'GET',
     timestamp: '2024-03-20 10:45:22',
     duration: '0.2s',
+    viewed: false,
     requestHeaders: {
       'Accept': 'application/json'
     },
@@ -75,6 +80,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'GET',
     timestamp: '2024-03-20 10:45:23',
     duration: '0.3s',
+    viewed: false,
     requestHeaders: {
       'Accept': 'application/json',
       'Authorization': 'Bearer abc123...'
@@ -96,6 +102,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'PUT',
     timestamp: '2024-03-20 10:45:24',
     duration: '0.2s',
+    viewed: false,
     requestHeaders: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer abc123...'
@@ -118,6 +125,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'POST',
     timestamp: '2024-03-20 10:45:25',
     duration: '2.5s',
+    viewed: false,
     requestHeaders: {
       'Content-Type': 'application/json',
       'Authorization': 'Bearer abc123...'
@@ -142,6 +150,7 @@ const mockRequests: NetworkRequest[] = [
     method: 'GET',
     timestamp: '2024-03-20 10:45:26',
     duration: '3.0s',
+    viewed: false,
     requestHeaders: {
       'Accept': 'application/json'
     },
@@ -155,7 +164,7 @@ const mockRequests: NetworkRequest[] = [
   }
 ];
 
-export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
+export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMockDataRef }: NetworkTabProps) {
   const [selectedRequest, setSelectedRequest] = useState<NetworkRequest | null>(null);
   const [requests, setRequests] = useState<NetworkRequest[]>(mockRequests);
   
@@ -165,6 +174,9 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
   const [methodFilter, setMethodFilter] = useState<string>('');
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showMethodDropdown, setShowMethodDropdown] = useState(false);
+  
+  // View state
+  const [viewDensity, setViewDensity] = useState<ViewDensity>('comfortable');
   
   // Cache control state
   const [cacheDisabled, setCacheDisabled] = useState(false);
@@ -190,6 +202,19 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
     onRequestsCountChange(filteredRequests.length);
   }, [filteredRequests.length, onRequestsCountChange]);
 
+  // Notify parent component when error count changes
+  useEffect(() => {
+    const errorCount = requests.filter(request => request.status >= 400).length;
+    onErrorsCountChange?.(errorCount);
+  }, [requests, onErrorsCountChange]);
+
+  // Expose addMockRequests function to parent
+  useEffect(() => {
+    if (onAddMockDataRef) {
+      onAddMockDataRef(addMockRequests);
+    }
+  }, [onAddMockDataRef]);
+
   const clearRequests = () => {
     setRequests([]);
     setSelectedRequest(null);
@@ -197,6 +222,16 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
 
   const addMockRequests = () => {
     setRequests(mockRequests);
+  };
+
+  const markRequestAsViewed = (requestId: string) => {
+    setRequests(prevRequests => 
+      prevRequests.map(request => 
+        request.id === requestId 
+          ? { ...request, viewed: true }
+          : request
+      )
+    );
   };
 
 
@@ -268,6 +303,7 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
   return (
     <div
       style={{
+        position: 'relative',
         padding: theme.spacing.md,
         display: 'flex',
         flexDirection: 'column',
@@ -286,23 +322,21 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
       >
         {/* Left side - Action buttons */}
         <div style={{ display: 'flex', gap: theme.spacing.sm, alignItems: 'center' }}>
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<ClearIcon />}
-            onClick={clearRequests}
-          >
-            Clear
-          </Button>
-
-          <Button
-            variant="secondary"
-            size="sm"
-            leftIcon={<AddIcon />}
-            onClick={addMockRequests}
-          >
-            Add Mock Data
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="secondary"
+                size="sm"
+                leftIcon={<ClearIcon />}
+                onClick={clearRequests}
+              >
+                Clear
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              Clear all network requests
+            </TooltipContent>
+          </Tooltip>
           
           {/* Cache Disable Checkbox */}
           <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm }}>
@@ -378,35 +412,49 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
           {/* Status Filter */}
           <Dropdown
             trigger={
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<FilterIcon size={12} />}
-                rightIcon={
-                  statusFilter ? (
-                    <span
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        clearStatusFilter();
-                      }}
-                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                    >
-                      <CloseIcon size={12} />
-                    </span>
-                  ) : (
-                    <ChevronDownIcon size={12} />
-                  )
-                }
-                style={{
-                  ...(statusFilter && {
-                    background: getStatusFilterColor(statusFilter),
-                    color: '#ffffff',
-                    borderColor: getStatusFilterColor(statusFilter),
-                  })
-                }}
-              >
-                {statusFilter || 'Status'}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FilterIcon size={12} />}
+                    rightIcon={
+                      statusFilter ? (
+                        <span
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            clearStatusFilter();
+                          }}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <CloseIcon size={12} />
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            transform: showStatusDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: theme.transitions.fast,
+                          }}
+                        >
+                          <ChevronDownIcon size={12} />
+                        </span>
+                      )
+                    }
+                    style={{
+                      ...(statusFilter && {
+                        background: getStatusFilterColor(statusFilter),
+                        color: '#ffffff',
+                        borderColor: getStatusFilterColor(statusFilter),
+                      })
+                    }}
+                  >
+                    {statusFilter || 'Status'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Filter by status code
+                </TooltipContent>
+              </Tooltip>
             }
             items={statusFilterItems}
             isOpen={showStatusDropdown}
@@ -417,34 +465,48 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
           {/* Method Filter */}
           <Dropdown
             trigger={
-              <Button
-                variant="secondary"
-                size="sm"
-                leftIcon={<FilterIcon size={12} />}
-                rightIcon={
-                  methodFilter ? (
-                    <span
-                      onClick={(e: React.MouseEvent) => {
-                        e.stopPropagation();
-                        clearMethodFilter();
-                      }}
-                      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                    >
-                      <CloseIcon size={12} />
-                    </span>
-                  ) : (
-                    <ChevronDownIcon size={12} />
-                  )
-                }
-                style={{
-                  ...(methodFilter && {
-                    background: theme.colors.primary.blue,
-                    color: theme.colors.text.primary,
-                  })
-                }}
-              >
-                {methodFilter || 'Method'}
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<FilterIcon size={12} />}
+                    rightIcon={
+                      methodFilter ? (
+                        <span
+                          onClick={(e: React.MouseEvent) => {
+                            e.stopPropagation();
+                            clearMethodFilter();
+                          }}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <CloseIcon size={12} />
+                        </span>
+                      ) : (
+                        <span
+                          style={{
+                            transform: showMethodDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+                            transition: theme.transitions.fast,
+                          }}
+                        >
+                          <ChevronDownIcon size={12} />
+                        </span>
+                      )
+                    }
+                    style={{
+                      ...(methodFilter && {
+                        background: theme.colors.primary.blue,
+                        color: theme.colors.text.primary,
+                      })
+                    }}
+                  >
+                    {methodFilter || 'Method'}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Filter by HTTP method
+                </TooltipContent>
+              </Tooltip>
             }
             items={methodFilterItems}
             isOpen={showMethodDropdown}
@@ -452,15 +514,36 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
             onClose={() => setShowMethodDropdown(false)}
           />
 
+          {/* View Density Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={viewDensity === 'compact' ? 'primary' : 'secondary'}
+                size="sm"
+                leftIcon={viewDensity === 'compact' ? <ListIcon size={12} /> : <CardIcon size={12} />}
+                onClick={() => setViewDensity(viewDensity === 'comfortable' ? 'compact' : 'comfortable')}
+                style={{
+                  minWidth: '40px',
+                }}
+              >
+                {viewDensity === 'compact' ? 'Compact' : 'Comfortable'}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {viewDensity === 'compact' 
+                ? 'Switch to comfortable view' 
+                : 'Switch to compact view'}
+            </TooltipContent>
+          </Tooltip>
 
         </div>
       </div>
 
       {/* Request List */}
       <div
+        className="custom-scrollbar"
         style={{
-          marginBottom: selectedRequest ? theme.spacing.md : 0,
-          maxHeight: selectedRequest ? '100px' : '220px',
+          maxHeight: '220px',
           overflowY: 'auto',
         }}
       >
@@ -471,18 +554,30 @@ export function NetworkTab({ onRequestsCountChange }: NetworkTabProps) {
             description={requests.length === 0 ? "Start browsing to see network activity" : "Try adjusting your search or filter criteria"}
           />
         ) : (
-          <NetworkRequestList
-            requests={filteredRequests}
-            selectedRequest={selectedRequest}
-            onSelectRequest={setSelectedRequest}
-          />
+          viewDensity === 'comfortable' ? (
+            <NetworkRequestList
+              requests={filteredRequests}
+              selectedRequest={selectedRequest}
+              onSelectRequest={setSelectedRequest}
+              onMarkAsViewed={markRequestAsViewed}
+            />
+          ) : (
+            <NetworkRequestTable
+              requests={filteredRequests}
+              selectedRequest={selectedRequest}
+              onSelectRequest={setSelectedRequest}
+              onMarkAsViewed={markRequestAsViewed}
+            />
+          )
         )}
       </div>
 
-      {/* Request Details */}
-      {selectedRequest && (
-        <NetworkRequestDetails request={selectedRequest} />
-      )}
+      {/* Request Inspector Panel */}
+      <RequestInspectorPanel 
+        request={selectedRequest}
+        isOpen={!!selectedRequest}
+        onClose={() => setSelectedRequest(null)}
+      />
     </div>
   );
 } 

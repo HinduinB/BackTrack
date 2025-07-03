@@ -40,58 +40,80 @@ export function Dropdown({ trigger, items, isOpen, onToggle, onClose }: Dropdown
 
       {isOpen && (
         <div
+          className="custom-scrollbar"
           style={{
             position: 'absolute',
             top: '100%',
             right: '0',
             marginTop: theme.spacing.xs,
-            background: theme.colors.background.secondary,
-            borderRadius: theme.borderRadius.md,
-            boxShadow: theme.shadows.md,
+            background: `linear-gradient(135deg, ${theme.colors.background.secondary} 0%, rgba(42, 44, 50, 0.95) 100%)`,
+            borderRadius: theme.borderRadius.lg,
+            border: `1px solid ${theme.colors.border.secondary}`,
+            boxShadow: '0 10px 38px -10px rgba(0, 0, 0, 0.35), 0 10px 20px -15px rgba(0, 0, 0, 0.2)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
             zIndex: 1000,
-            minWidth: '140px',
+            width: '100%',
             maxHeight: '200px',
             overflowY: 'auto',
-            // Hide scrollbar but keep functionality
-            scrollbarWidth: 'none', // Firefox
-            msOverflowStyle: 'none', // IE/Edge
+            padding: theme.spacing.xs,
           }}
-          className="dropdown-scroll"
         >
-          <style>{`
-            .dropdown-scroll::-webkit-scrollbar {
-              display: none; /* Chrome, Safari */
-            }
-          `}</style>
           {items.map((item, index) => (
             <button
               key={item.key}
               onClick={item.onClick}
               style={{
-                display: 'block',
+                display: 'flex',
+                alignItems: 'center',
                 width: '100%',
-                padding: `${theme.spacing.sm} ${theme.spacing.lg}`,
+                padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+                marginBottom: index < items.length - 1 ? '2px' : '0',
                 border: 'none',
-                borderBottom: index < items.length - 1 ? `1px solid ${theme.colors.border.tertiary}` : 'none',
+                borderRadius: theme.borderRadius.md,
                 background: 'transparent',
-                color: item.color || theme.colors.text.secondary,
+                color: item.color || theme.colors.text.primary,
                 fontSize: theme.typography.sizes.sm,
                 fontWeight: theme.typography.weights.medium,
                 textAlign: 'left',
                 cursor: 'pointer',
                 outline: 'none',
-                transition: theme.transitions.fast,
+                transition: 'all 0.15s ease',
+                position: 'relative',
               }}
               onMouseEnter={e => {
-                e.currentTarget.style.background = theme.colors.background.hover;
-                e.currentTarget.style.color = item.color || theme.colors.text.secondary;
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.transform = 'translateX(2px)';
+                e.currentTarget.style.color = item.color || theme.colors.text.primary;
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = item.color || theme.colors.text.secondary;
+                e.currentTarget.style.transform = 'translateX(0px)';
+                e.currentTarget.style.color = item.color || theme.colors.text.primary;
+              }}
+              onFocus={e => {
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                e.currentTarget.style.outline = `2px solid ${theme.colors.primary.blue}`;
+                e.currentTarget.style.outlineOffset = '2px';
+              }}
+              onBlur={e => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.outline = 'none';
               }}
             >
-              {item.label}
+              {item.color && (
+                <div
+                  style={{
+                    width: '8px',
+                    height: '8px',
+                    borderRadius: '50%',
+                    background: item.color,
+                    marginRight: theme.spacing.sm,
+                    flexShrink: 0,
+                  }}
+                />
+              )}
+              <span style={{ flex: 1 }}>{item.label}</span>
             </button>
           ))}
         </div>

@@ -6,28 +6,36 @@ interface NetworkRequestListProps {
   requests: NetworkRequest[];
   selectedRequest: NetworkRequest | null;
   onSelectRequest: (request: NetworkRequest | null) => void;
+  onMarkAsViewed: (requestId: string) => void;
 }
 
-export function NetworkRequestList({ requests, selectedRequest, onSelectRequest }: NetworkRequestListProps) {
+export function NetworkRequestList({ requests, selectedRequest, onSelectRequest, onMarkAsViewed }: NetworkRequestListProps) {
   return (
     <div
       style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: theme.spacing.sm,
+        gap: '2px',
       }}
     >
       {requests.map((request) => {
         const isSelected = selectedRequest?.id === request.id;
         const isError = request.status >= 400;
+        const isViewed = request.viewed === true;
         
         return (
           <div
             key={request.id}
-            onClick={() => onSelectRequest(isSelected ? null : request)}
+            className={!isSelected ? (isError ? 'request-card-error' : 'request-card-normal') : ''}
+            onClick={() => {
+              if (!isViewed) {
+                onMarkAsViewed(request.id);
+              }
+              onSelectRequest(isSelected ? null : request);
+            }}
             style={{
               position: 'relative',
-              padding: theme.spacing.md,
+              padding: '8px',
               background: isSelected 
                 ? `linear-gradient(135deg, ${theme.colors.background.secondary} 0%, ${theme.colors.background.tertiary} 100%)`
                 : `linear-gradient(135deg, ${theme.colors.background.secondary} 0%, rgba(42, 44, 50, 0.6) 100%)`,
@@ -47,20 +55,7 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest 
                 ? `0 8px 32px rgba(47, 130, 255, 0.2), 0 0 0 1px ${theme.colors.border.focus}`
                 : '0 2px 8px rgba(0, 0, 0, 0.1)',
               overflow: 'hidden',
-            }}
-            onMouseEnter={(e) => {
-              if (!isSelected) {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 8px 25px rgba(0, 0, 0, 0.15)';
-                e.currentTarget.style.borderColor = theme.colors.border.tertiary;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isSelected) {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
-                e.currentTarget.style.borderColor = isError ? 'rgba(255, 76, 76, 0.3)' : theme.colors.border.secondary;
-              }
+              opacity: isViewed && !isSelected ? 0.7 : 1,
             }}
           >
             {/* Subtle animated gradient overlay */}
@@ -83,9 +78,31 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest 
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: theme.spacing.md,
+                gap: '6px',
               }}
             >
+              {/* Unread Indicator Dot */}
+              {!isViewed && (
+                <div
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    background: request.status >= 400 
+                      ? 'rgba(255, 76, 76, 0.9)'
+                      : request.status >= 300
+                        ? 'rgba(255, 170, 64, 0.9)'
+                        : 'rgba(0, 214, 127, 0.9)',
+                    flexShrink: 0,
+                    boxShadow: request.status >= 400 
+                      ? '0 0 4px rgba(255, 76, 76, 0.5)'
+                      : request.status >= 300
+                        ? '0 0 4px rgba(255, 170, 64, 0.5)'
+                        : '0 0 4px rgba(0, 214, 127, 0.5)',
+                  }}
+                />
+              )}
+
               {/* Status Badge */}
               <div style={{ flexShrink: 0 }}>
                 <StatusBadge status={request.status} />
@@ -95,12 +112,12 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest 
               <div
                 style={{
                   flexShrink: 0,
-                  minWidth: '60px',
-                  fontSize: theme.typography.sizes.sm,
+                  minWidth: '42px',
+                  fontSize: theme.typography.sizes.xs,
                   fontWeight: theme.typography.weights.medium,
                   color: theme.colors.text.secondary,
                   textAlign: 'center',
-                  padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+                  padding: '1px 4px',
                   background: 'rgba(255, 255, 255, 0.05)',
                   borderRadius: theme.borderRadius.sm,
                   border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -113,10 +130,10 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div
                   style={{
-                    fontSize: theme.typography.sizes.base,
+                    fontSize: theme.typography.sizes.sm,
                     fontWeight: theme.typography.weights.medium,
                     color: theme.colors.text.primary,
-                    marginBottom: theme.spacing.xs,
+                    marginBottom: '0px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
@@ -126,11 +143,11 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest 
                 </div>
                 <div
                   style={{
-                    fontSize: theme.typography.sizes.sm,
+                    fontSize: theme.typography.sizes.xs,
                     color: theme.colors.text.muted,
                     display: 'flex',
                     alignItems: 'center',
-                    gap: theme.spacing.sm,
+                    gap: '2px',
                   }}
                 >
                   <span>{request.duration}</span>
@@ -143,7 +160,7 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest 
               <div
                 style={{
                   width: '3px',
-                  height: '40px',
+                  height: '20px',
                   borderRadius: '2px',
                   background: request.status >= 400 
                     ? 'linear-gradient(180deg, rgba(255, 76, 76, 0.8), rgba(255, 76, 76, 0.4))'
