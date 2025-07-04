@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { type NetworkRequest } from '../types';
 import { theme } from '../theme';
@@ -148,6 +148,22 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
 
   return createPortal(
     <>
+      {/* CSS Animation Keyframes */}
+      <style>
+        {`
+          @keyframes ripple {
+            from {
+              transform: translate(-50%, -50%) scale(0);
+              opacity: 1;
+            }
+            to {
+              transform: translate(-50%, -50%) scale(4);
+              opacity: 0;
+            }
+          }
+        `}
+      </style>
+      
       {/* Backdrop */}
       <div
         style={{
@@ -360,22 +376,574 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
 
 // Placeholder tab components (we'll implement these next)
 function OverviewTab({ request }: { request: NetworkRequest }) {
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      console.log(`BackTrack: Copied ${label} to clipboard`);
+    } catch (error) {
+      console.error('BackTrack: Failed to copy to clipboard:', error);
+    }
+  };
+
+  const getStatusColor = (status: number): string => {
+    if (status >= 200 && status < 300) return '#00D67F'; // Success - Green
+    if (status >= 300 && status < 400) return '#2F82FF'; // Redirect - Blue  
+    if (status >= 400 && status < 500) return '#FFB020'; // Client Error - Orange
+    if (status >= 500) return '#FF4C4C'; // Server Error - Red
+    return theme.colors.text.muted; // Unknown
+  };
+
+  const getStatusText = (status: number): string => {
+    if (status >= 200 && status < 300) return 'OK';
+    if (status >= 300 && status < 400) return 'Redirect';
+    if (status >= 400 && status < 500) return 'Client Error';
+    if (status >= 500) return 'Server Error';
+    return 'Unknown';
+  };
+
+  const getCacheStatus = (): string => {
+    const cacheControl = request.responseHeaders['cache-control'] || request.responseHeaders['Cache-Control'] || '';
+    const expires = request.responseHeaders['expires'] || request.responseHeaders['Expires'] || '';
+    const etag = request.responseHeaders['etag'] || request.responseHeaders['ETag'] || '';
+    
+    if (cacheControl.includes('no-cache') || cacheControl.includes('no-store')) return 'No Cache';
+    if (etag || expires || cacheControl.includes('max-age')) return 'Cacheable';
+    return 'Unknown';
+  };
+
+  const getProtocol = (): string => {
+    // Try to detect from URL or headers
+    if (request.url.startsWith('https://')) return 'HTTPS';
+    if (request.url.startsWith('http://')) return 'HTTP';
+    return 'HTTP/1.1'; // Fallback
+  };
+
+  const getResponseSize = (): string => {
+    if (request.size) return request.size;
+    
+    const contentLength = request.responseHeaders['content-length'] || request.responseHeaders['Content-Length'];
+    if (contentLength) {
+      const bytes = parseInt(contentLength);
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    
+    if (request.responseBody) {
+      const bytes = new Blob([request.responseBody]).size;
+      if (bytes < 1024) return `${bytes} B`;
+      if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    
+    return 'N/A';
+  };
+
+  const getRemoteIP = (): string => {
+    // This would typically come from webRequest API details
+    return 'N/A'; // Chrome extension limitation
+  };
+
+  const formatTimestamp = (timestamp: string): string => {
+    try {
+      const date = new Date(timestamp);
+      return date.toLocaleString();
+    } catch {
+      return timestamp;
+    }
+  };
+
+  const InfoRow = ({ icon, label, value, color, copyable = false }: {
+    icon: string;
+    label: string; 
+    value: string;
+    color?: string;
+    copyable?: boolean;
+  }) => (
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      padding: `${theme.spacing.sm} ${theme.spacing.md}`,
+      background: 'rgba(255, 255, 255, 0.02)',
+      border: `1px solid ${theme.colors.border.secondary}`,
+      borderRadius: theme.borderRadius.md,
+      marginBottom: theme.spacing.sm,
+    }}>
+      <span style={{ marginRight: theme.spacing.sm, fontSize: '16px' }}>
+        {icon}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: theme.typography.sizes.xs,
+          color: theme.colors.text.muted,
+          marginBottom: '2px',
+        }}>
+          {label}
+        </div>
+        <div style={{
+          fontSize: theme.typography.sizes.sm,
+          fontWeight: theme.typography.weights.medium,
+          color: color || theme.colors.text.primary,
+          fontFamily: copyable ? 'monospace' : 'inherit',
+          wordBreak: 'break-all',
+        }}>
+          {value}
+        </div>
+      </div>
+      {copyable && (
+        <button
+          onClick={() => copyToClipboard(value, label)}
+          style={{
+            padding: theme.spacing.xs,
+            background: 'rgba(139, 92, 246, 0.1)',
+            border: '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: theme.borderRadius.sm,
+            color: theme.colors.primary.purple,
+            cursor: 'pointer',
+            fontSize: '12px',
+            transition: 'all 0.2s ease',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+          }}
+        >
+          📋
+        </button>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ color: theme.colors.text.primary }}>
-      <h3>Overview Content</h3>
-      <p>Status: {request.status}</p>
-      <p>Method: {request.method}</p>
-      <p>URL: {request.name}</p>
-      <p>Duration: {request.duration}</p>
+      <h3 style={{
+        margin: `0 0 ${theme.spacing.lg} 0`,
+        fontSize: theme.typography.sizes.lg,
+        fontWeight: theme.typography.weights.semibold,
+        color: theme.colors.text.primary,
+      }}>
+        Request Overview
+      </h3>
+
+      <div style={{ display: 'grid', gap: theme.spacing.sm }}>
+        <InfoRow
+          icon="✅"
+          label="Status"
+          value={`${request.status} ${getStatusText(request.status)}`}
+          color={getStatusColor(request.status)}
+        />
+
+        <InfoRow
+          icon="🔗"
+          label="URL"
+          value={request.url}
+          copyable={true}
+        />
+
+        <InfoRow
+          icon="⚡"
+          label="Method"
+          value={request.method}
+          color={request.method === 'GET' ? '#00D67F' : '#2F82FF'}
+        />
+
+        <InfoRow
+          icon="⏱️"
+          label="Duration"
+          value={request.duration}
+        />
+
+        <InfoRow
+          icon="📅"
+          label="Timestamp"
+          value={formatTimestamp(request.timestamp)}
+        />
+
+        <InfoRow
+          icon="🏷️"
+          label="Response Size"
+          value={getResponseSize()}
+        />
+
+        <InfoRow
+          icon="📡"
+          label="Protocol"
+          value={getProtocol()}
+        />
+
+        <InfoRow
+          icon="🔄"
+          label="Cache Status"
+          value={getCacheStatus()}
+        />
+
+        <InfoRow
+          icon="🌐"
+          label="Remote IP"
+          value={getRemoteIP()}
+        />
+
+        {request.type && (
+          <InfoRow
+            icon="🏗️"
+            label="Resource Type"
+            value={request.type}
+          />
+        )}
+
+        {request.domain && (
+          <InfoRow
+            icon="🌍"
+            label="Domain"
+            value={request.domain}
+            copyable={true}
+          />
+        )}
+
+        {request.error && (
+          <div style={{
+            padding: theme.spacing.md,
+            background: 'rgba(255, 76, 76, 0.1)',
+            border: '1px solid rgba(255, 76, 76, 0.3)',
+            borderRadius: theme.borderRadius.md,
+            marginTop: theme.spacing.md,
+          }}>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              marginBottom: theme.spacing.sm,
+            }}>
+              <span style={{ marginRight: theme.spacing.sm, fontSize: '16px' }}>
+                ❌
+              </span>
+              <span style={{
+                fontSize: theme.typography.sizes.sm,
+                fontWeight: theme.typography.weights.semibold,
+                color: '#FF4C4C',
+              }}>
+                Error Details
+              </span>
+            </div>
+            <div style={{
+              fontSize: theme.typography.sizes.sm,
+              color: theme.colors.text.primary,
+              fontFamily: 'monospace',
+            }}>
+              {request.error.message}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function HeadersTab({ request: _request }: { request: NetworkRequest }) {
+function HeadersTab({ request }: { request: NetworkRequest }) {
+  const [copiedStates, setCopiedStates] = React.useState<Record<string, boolean>>({});
+
+
+
+  const copyToClipboard = async (text: string, label: string, buttonId: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      console.log(`BackTrack: Copied ${label} to clipboard`);
+      
+      // Show copied feedback
+      setCopiedStates(prev => ({ ...prev, [buttonId]: true }));
+      
+      // Reset after 2 seconds
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [buttonId]: false }));
+      }, 2000);
+    } catch (error) {
+      console.error('BackTrack: Failed to copy to clipboard:', error);
+    }
+  };
+
+  const copyAllRequestHeaders = () => {
+    const headerText = Object.entries(request.requestHeaders)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+    copyToClipboard(headerText, 'Request Headers', 'request-headers');
+  };
+
+  const copyAllResponseHeaders = () => {
+    const headerText = Object.entries(request.responseHeaders)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join('\n');
+    copyToClipboard(headerText, 'Response Headers', 'response-headers');
+  };
+
+  const copyCurl = () => {
+    const headersString = Object.entries(request.requestHeaders)
+      .map(([key, value]) => `-H "${key}: ${value}"`)
+      .join(' ');
+    
+    const curlCommand = `curl -X ${request.method} ${headersString} "${request.url}"`;
+    copyToClipboard(curlCommand, 'cURL Command', 'curl');
+  };
+
+  const renderHeaderSection = (title: string, headers: Record<string, string>, onCopyAll: () => void, buttonId: string) => (
+    <div style={{ 
+      flex: 1, 
+      minWidth: '300px', // Ensure minimum width
+      maxWidth: '100%'   // Don't exceed container
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: theme.spacing.md,
+        paddingBottom: theme.spacing.sm,
+        borderBottom: `1px solid ${theme.colors.border.secondary}`
+      }}>
+        <h3 style={{
+          margin: 0,
+          fontSize: theme.typography.sizes.md,
+          fontWeight: theme.typography.weights.semibold,
+          color: theme.colors.text.primary,
+        }}>
+          {title}
+        </h3>
+        <button
+          onClick={onCopyAll}
+          style={{
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+            background: copiedStates[buttonId] 
+              ? 'rgba(0, 214, 127, 0.2)' 
+              : 'rgba(139, 92, 246, 0.1)',
+            border: copiedStates[buttonId]
+              ? '1px solid rgba(0, 214, 127, 0.5)'
+              : '1px solid rgba(139, 92, 246, 0.3)',
+            borderRadius: theme.borderRadius.md,
+            color: copiedStates[buttonId] 
+              ? '#00D67F' 
+              : theme.colors.primary.purple,
+            fontSize: theme.typography.sizes.xs,
+            fontWeight: theme.typography.weights.medium,
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            whiteSpace: 'nowrap',
+            transform: copiedStates[buttonId] ? 'scale(1.05)' : 'scale(1)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+          onMouseEnter={(e) => {
+            if (!copiedStates[buttonId]) {
+              e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!copiedStates[buttonId]) {
+              e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            }
+          }}
+        >
+          {copiedStates[buttonId] ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              ✓ Copied!
+            </span>
+          ) : (
+            'Copy All'
+          )}
+          
+          {/* Ripple animation */}
+          {copiedStates[buttonId] && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: '100%',
+                height: '100%',
+                background: 'rgba(0, 214, 127, 0.3)',
+                borderRadius: '50%',
+                transform: 'translate(-50%, -50%) scale(0)',
+                animation: 'ripple 0.6s ease-out',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </button>
+      </div>
+
+      <div style={{ 
+        background: 'rgba(255, 255, 255, 0.02)',
+        border: `1px solid ${theme.colors.border.secondary}`,
+        borderRadius: theme.borderRadius.lg,
+        padding: theme.spacing.sm,
+        maxHeight: '350px',
+        overflowY: 'auto',
+        width: '100%'
+      }}>
+        {Object.keys(headers).length === 0 ? (
+          <div style={{
+            color: theme.colors.text.muted,
+            fontStyle: 'italic',
+            textAlign: 'center',
+            padding: theme.spacing.lg
+          }}>
+            No headers available
+          </div>
+        ) : (
+          Object.entries(headers).map(([key, value]) => (
+            <div
+              key={key}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                padding: `${theme.spacing.xs} 0`,
+                borderBottom: `1px solid rgba(255, 255, 255, 0.05)`,
+                marginBottom: theme.spacing.xs,
+              }}
+            >
+              <div style={{
+                fontWeight: theme.typography.weights.medium,
+                color: theme.colors.text.secondary,
+                fontFamily: 'monospace',
+                fontSize: theme.typography.sizes.xs,
+                marginBottom: '2px',
+              }}>
+                {key}:
+              </div>
+              <div style={{
+                color: theme.colors.text.primary,
+                fontFamily: 'monospace',
+                fontSize: theme.typography.sizes.xs,
+                lineHeight: '1.4',
+                wordBreak: 'break-all',
+                paddingLeft: theme.spacing.sm,
+                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                padding: theme.spacing.xs,
+                borderRadius: theme.borderRadius.sm,
+              }}>
+                {value}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div style={{ color: theme.colors.text.primary }}>
-      <h3>Headers Content</h3>
-      <p>Request and response headers will go here</p>
+      {/* Action Buttons */}
+      <div style={{ 
+        display: 'flex', 
+        gap: theme.spacing.sm, 
+        marginBottom: theme.spacing.md,
+        justifyContent: 'flex-end',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={copyCurl}
+          style={{
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+            background: copiedStates['curl']
+              ? 'rgba(139, 92, 246, 0.2)'
+              : 'rgba(0, 214, 127, 0.1)',
+            border: copiedStates['curl']
+              ? '1px solid rgba(139, 92, 246, 0.5)'
+              : '1px solid rgba(0, 214, 127, 0.3)',
+            borderRadius: theme.borderRadius.md,
+            color: copiedStates['curl']
+              ? theme.colors.primary.purple
+              : '#00D67F',
+            fontSize: theme.typography.sizes.xs,
+            fontWeight: theme.typography.weights.medium,
+            cursor: 'pointer',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            whiteSpace: 'nowrap',
+            transform: copiedStates['curl'] ? 'scale(1.05)' : 'scale(1)',
+            position: 'relative',
+            overflow: 'hidden',
+          }}
+          onMouseEnter={(e) => {
+            if (!copiedStates['curl']) {
+              e.currentTarget.style.background = 'rgba(0, 214, 127, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            if (!copiedStates['curl']) {
+              e.currentTarget.style.background = 'rgba(0, 214, 127, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            }
+          }}
+        >
+          {copiedStates['curl'] ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              ✓ Copied!
+            </span>
+          ) : (
+            'Copy as cURL'
+          )}
+          
+          {/* Ripple animation */}
+          {copiedStates['curl'] && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: '100%',
+                height: '100%',
+                background: 'rgba(139, 92, 246, 0.3)',
+                borderRadius: '50%',
+                transform: 'translate(-50%, -50%) scale(0)',
+                animation: 'ripple 0.6s ease-out',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
+        </button>
+      </div>
+
+      {/* Chrome Extension Limitations Notice */}
+      <div style={{
+        marginBottom: theme.spacing.lg,
+        padding: theme.spacing.sm,
+        background: 'rgba(255, 176, 32, 0.05)',
+        border: `1px solid rgba(255, 176, 32, 0.2)`,
+        borderRadius: theme.borderRadius.md,
+        fontSize: theme.typography.sizes.xs,
+        color: theme.colors.text.muted,
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          marginBottom: '4px',
+        }}>
+          <span style={{ color: '#FFB020' }}>ℹ️</span>
+          <span style={{
+            fontWeight: theme.typography.weights.medium,
+            color: theme.colors.text.secondary,
+          }}>
+            Chrome Extension Limitations
+          </span>
+        </div>
+        <div style={{ lineHeight: '1.4' }}>
+          Some headers shown in DevTools may be filtered by Chrome for security. 
+          HTTP/2 pseudo-headers (:authority, :method, :path, :scheme) are reconstructed from request data.
+        </div>
+      </div>
+
+      {/* Headers Layout */}
+      <div style={{ 
+        display: 'flex', 
+        gap: theme.spacing.md,
+        minHeight: '300px',
+        flexWrap: 'wrap', // Allow wrapping on smaller screens
+      }}>
+        {renderHeaderSection("Request Headers", request.requestHeaders, copyAllRequestHeaders, 'request-headers')}
+        {renderHeaderSection("Response Headers", request.responseHeaders, copyAllResponseHeaders, 'response-headers')}
+      </div>
     </div>
   );
 }
@@ -389,11 +957,268 @@ function PayloadTab({ request: _request }: { request: NetworkRequest }) {
   );
 }
 
-function ResponseTab({ request: _request }: { request: NetworkRequest }) {
+function ResponseTab({ request }: { request: NetworkRequest }) {
+  const copyToClipboard = async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      console.log(`BackTrack: Copied ${label} to clipboard`);
+    } catch (error) {
+      console.error('BackTrack: Failed to copy to clipboard:', error);
+    }
+  };
+
+  const downloadResponse = () => {
+    try {
+      const responseBody = request.responseBody || '';
+      const contentType = request.responseHeaders['content-type'] || 'text/plain';
+      const blob = new Blob([responseBody], { type: contentType });
+      const url = URL.createObjectURL(blob);
+      
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `response-${request.id}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      console.log('BackTrack: Response downloaded');
+    } catch (error) {
+      console.error('BackTrack: Failed to download response:', error);
+    }
+  };
+
+  const formatJSON = (jsonString: string): string => {
+    try {
+      const parsed = JSON.parse(jsonString);
+      return JSON.stringify(parsed, null, 2);
+    } catch {
+      return jsonString;
+    }
+  };
+
+  const isJSON = (str: string): boolean => {
+    try {
+      JSON.parse(str);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  const getContentType = (): string => {
+    const contentType = request.responseHeaders['content-type'] || request.responseHeaders['Content-Type'] || '';
+    return contentType.split(';')[0].trim();
+  };
+
+  const renderJSONContent = (content: string) => {
+    const formatted = formatJSON(content);
+    const lines = formatted.split('\n');
+    
+    return (
+      <pre style={{
+        margin: 0,
+        fontFamily: 'monospace',
+        fontSize: theme.typography.sizes.sm,
+        lineHeight: '1.5',
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}>
+        {lines.map((line, index) => (
+          <div key={index} style={{
+            padding: '2px 0',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
+            paddingLeft: theme.spacing.sm,
+            marginLeft: theme.spacing.xs,
+          }}>
+            <span style={{
+              color: theme.colors.text.muted,
+              marginRight: theme.spacing.sm,
+              minWidth: '30px',
+              display: 'inline-block',
+              textAlign: 'right',
+              fontSize: '11px',
+            }}>
+              {index + 1}
+            </span>
+            <span style={{ color: getLineColor(line) }}>
+              {line}
+            </span>
+          </div>
+        ))}
+      </pre>
+    );
+  };
+
+  const getLineColor = (line: string): string => {
+    const trimmed = line.trim();
+    if (trimmed.match(/^["{]/)) return theme.colors.text.primary;
+    if (trimmed.match(/^"/)) return '#98D8C8'; // String values
+    if (trimmed.match(/^[\d.-]+,?$/)) return '#F7DC6F'; // Numbers
+    if (trimmed.match(/^(true|false),?$/)) return '#BB8FCE'; // Booleans
+    if (trimmed.match(/^null,?$/)) return '#EC7063'; // null
+    return theme.colors.text.secondary;
+  };
+
+  const responseBody = request.responseBody || '';
+  const contentType = getContentType();
+  const isEmpty = !responseBody.trim();
+
   return (
     <div style={{ color: theme.colors.text.primary }}>
-      <h3>Response Content</h3>
-      <p>Response body content will go here</p>
+      {/* Header with Action Buttons */}
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: theme.spacing.lg,
+        paddingBottom: theme.spacing.sm,
+        borderBottom: `1px solid ${theme.colors.border.secondary}`
+      }}>
+        <div>
+          <h3 style={{
+            margin: 0,
+            fontSize: theme.typography.sizes.lg,
+            fontWeight: theme.typography.weights.semibold,
+            color: theme.colors.text.primary,
+          }}>
+            Response Body
+          </h3>
+          <p style={{
+            margin: `${theme.spacing.xs} 0 0 0`,
+            fontSize: theme.typography.sizes.sm,
+            color: theme.colors.text.muted,
+          }}>
+            Content-Type: {contentType || 'unknown'}
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
+          {isJSON(responseBody) && (
+            <button
+              onClick={() => copyToClipboard(formatJSON(responseBody), 'Formatted JSON')}
+              style={{
+                padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+                background: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                borderRadius: theme.borderRadius.md,
+                color: theme.colors.primary.purple,
+                fontSize: theme.typography.sizes.xs,
+                fontWeight: theme.typography.weights.medium,
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+                e.currentTarget.style.transform = 'translateY(-1px)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              Copy JSON
+            </button>
+          )}
+          
+          <button
+            onClick={() => copyToClipboard(responseBody, 'Raw Response')}
+            style={{
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+              background: 'rgba(47, 130, 255, 0.1)',
+              border: '1px solid rgba(47, 130, 255, 0.3)',
+              borderRadius: theme.borderRadius.md,
+              color: '#2F82FF',
+              fontSize: theme.typography.sizes.xs,
+              fontWeight: theme.typography.weights.medium,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(47, 130, 255, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(47, 130, 255, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Copy Raw
+          </button>
+
+          <button
+            onClick={downloadResponse}
+            style={{
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+              background: 'rgba(0, 214, 127, 0.1)',
+              border: '1px solid rgba(0, 214, 127, 0.3)',
+              borderRadius: theme.borderRadius.md,
+              color: '#00D67F',
+              fontSize: theme.typography.sizes.xs,
+              fontWeight: theme.typography.weights.medium,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 214, 127, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 214, 127, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            Download
+          </button>
+        </div>
+      </div>
+
+      {/* Response Content */}
+      <div style={{ 
+        background: 'rgba(255, 255, 255, 0.02)',
+        border: `1px solid ${theme.colors.border.secondary}`,
+        borderRadius: theme.borderRadius.lg,
+        padding: theme.spacing.md,
+        maxHeight: '500px',
+        overflowY: 'auto',
+        minHeight: '200px'
+      }}>
+        {isEmpty ? (
+          <div style={{
+            color: theme.colors.text.muted,
+            fontStyle: 'italic',
+            textAlign: 'center',
+            padding: theme.spacing.xl
+          }}>
+            No response body available
+          </div>
+        ) : isJSON(responseBody) ? (
+          renderJSONContent(responseBody)
+        ) : contentType.includes('image') ? (
+          <div style={{
+            color: theme.colors.text.muted,
+            textAlign: 'center',
+            padding: theme.spacing.xl
+          }}>
+            <div style={{ marginBottom: theme.spacing.sm }}>📷 Image Response</div>
+            <div style={{ fontSize: theme.typography.sizes.sm }}>
+              Image content cannot be displayed in extension popup
+            </div>
+          </div>
+        ) : (
+          <pre style={{
+            margin: 0,
+            fontFamily: 'monospace',
+            fontSize: theme.typography.sizes.sm,
+            lineHeight: '1.5',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+            color: theme.colors.text.primary,
+          }}>
+            {responseBody}
+          </pre>
+        )}
+      </div>
     </div>
   );
 }

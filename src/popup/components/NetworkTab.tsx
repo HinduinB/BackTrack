@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { type NetworkRequest, type NetworkTabProps, type ViewDensity } from '../types';
 import { theme } from '../theme';
 import { RippleButton as Button } from './magicui/RippleButton';
@@ -11,6 +11,8 @@ import { getStatusColor } from './ui/StatusBadge';
 import { NetworkRequestList } from './NetworkRequestList';
 import { NetworkRequestTable } from './NetworkRequestTable';
 import { RequestInspectorPanel } from './RequestInspectorPanel';
+import { HARExporter } from '../utils/harExport';
+import { ExportDisclaimerModal } from './ui';
 
 // Background script RequestEntry type
 type RequestEntry = {
@@ -22,6 +24,17 @@ type RequestEntry = {
   type: string;
   timeStamp: number;
   pinned: boolean;
+  // Headers and body data
+  requestHeaders: Record<string, string>;
+  responseHeaders: Record<string, string>;
+  responseBody?: string;
+  // Additional fields for compatibility
+  domain: string;
+  size?: string;
+  error?: {
+    message: string;
+    stack?: string;
+  };
 };
 
 // Transform background script data to popup format
@@ -75,14 +88,17 @@ function transformRequestEntry(entry: RequestEntry): NetworkRequest {
     timestamp: new Date(entry.timeStamp).toLocaleString(),
     duration: '0.0s', // We'll calculate this when we have timing data
     viewed: false,
-    requestHeaders: {},
-    responseHeaders: {},
-    responseBody: '',
+    // Use actual headers and body from background script
+    requestHeaders: entry.requestHeaders || {},
+    responseHeaders: entry.responseHeaders || {},
+    requestBody: undefined, // Will be added when we capture request bodies
+    responseBody: entry.responseBody || undefined,
+    error: entry.error,
     // Additional DevTools-like fields
     url: entry.url,
-    domain: url.hostname,
+    domain: entry.domain || url.hostname, // Use background-provided domain or fallback
     type: formatType(entry.type),
-    size: undefined, // We'll add size data when available
+    size: entry.size,
   };
 }
 
@@ -267,7 +283,9 @@ export function NetworkTab({
   isDetached = false,
   selectedRequest = null,
   onSelectedRequestChange,
-  onAllRequestsChange
+  onAllRequestsChange,
+  onExportHARRef,
+  onExportStateChange
 }: NetworkTabProps) {
   const [requests, setRequests] = useState<NetworkRequest[]>([]);
   const [isLoadingRealData, setIsLoadingRealData] = useState(true);
@@ -305,6 +323,12 @@ export function NetworkTab({
   
   // Cache control state
   const [cacheDisabled, setCacheDisabled] = useState(false);
+  
+  // Export-related state
+  const [isExporting, setIsExporting] = useState(false);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
+  const [disclaimerDismissed, setDisclaimerDismissed] = useState(false);
+
 
   // Check tracking state from background script
   const checkTrackingState = async () => {
@@ -463,6 +487,128 @@ export function NetworkTab({
     }
   };
 
+  // HAR Export functionality - entry point
+  const exportToHAR = useCallback(async () => {
+    if (requests.length === 0) {
+      return;
+    }
+
+    // Check if user has dismissed the disclaimer
+    if (disclaimerDismissed) {
+      proceedWithExport();
+    } else {
+      setShowDisclaimerModal(true);
+    }
+  }, [requests, disclaimerDismissed]);
+
+  // Check if disclaimer has been dismissed on mount
+  useEffect(() => {
+    const checkDisclaimerDismissed = async () => {
+      try {
+        const result = await chrome.storage.local.get('harExportDisclaimerDismissed');
+        setDisclaimerDismissed(result.harExportDisclaimerDismissed === true);
+      } catch (error) {
+        console.error('Failed to check disclaimer status:', error);
+      }
+    };
+    checkDisclaimerDismissed();
+  }, []);
+
+  // Handle "Never show again" action
+  const handleNeverShowAgain = async () => {
+    try {
+      await chrome.storage.local.set({ harExportDisclaimerDismissed: true });
+      setDisclaimerDismissed(true);
+      setShowDisclaimerModal(false);
+      proceedWithExport();
+    } catch (error) {
+      console.error('Failed to save disclaimer preference:', error);
+      // Still proceed with export even if we can't save the preference
+      setShowDisclaimerModal(false);
+      proceedWithExport();
+    }
+  };
+
+  // Proceed with the actual HAR export
+  const proceedWithExport = async () => {
+    setIsExporting(true);
+    
+    try {
+      // Convert NetworkRequest[] back to RequestEntry[] format expected by HARExporter
+      const requestEntries = requests.map((req): any => ({
+        id: req.id,
+        url: req.url || '',
+        method: req.method,
+        statusCode: req.status,
+        statusLine: `${req.status} ${getStatusText(req.status)}`,
+        type: req.type?.toLowerCase() || 'other',
+        timeStamp: new Date(req.timestamp).getTime(),
+        pinned: false,
+        requestHeaders: req.requestHeaders || {},
+        responseHeaders: req.responseHeaders || {},
+        responseBody: req.responseBody,
+        domain: req.domain || new URL(req.url || 'https://example.com').hostname,
+        size: req.size,
+        error: req.error
+      }));
+
+      // Get current page URL for context
+      const pageUrl = await HARExporter.getCurrentPageUrl();
+      
+      // Convert to HAR format
+      const harData = HARExporter.convertRequestsToHAR(requestEntries, pageUrl);
+      
+      // Export to file
+      HARExporter.exportToFile(harData);
+      
+      // Export completed successfully
+      
+    } catch (error) {
+      console.error('HAR export failed:', error);
+      // TODO: Show error in a user-friendly way
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const getStatusText = (statusCode: number): string => {
+    const statusTexts: Record<number, string> = {
+      200: 'OK',
+      201: 'Created',
+      204: 'No Content',
+      301: 'Moved Permanently',
+      302: 'Found',
+      304: 'Not Modified',
+      400: 'Bad Request',
+      401: 'Unauthorized',
+      403: 'Forbidden',
+      404: 'Not Found',
+      405: 'Method Not Allowed',
+      500: 'Internal Server Error',
+      502: 'Bad Gateway',
+      503: 'Service Unavailable'
+    };
+    return statusTexts[statusCode] || 'Unknown';
+  };
+
+
+
+  // Expose export functionality to parent
+  useEffect(() => {
+    if (onExportHARRef) {
+      onExportHARRef(exportToHAR);
+    }
+  }, [onExportHARRef, exportToHAR]);
+
+  useEffect(() => {
+    if (onExportStateChange) {
+      onExportStateChange({
+        isExporting,
+        hasData: requests.length > 0
+      });
+    }
+  }, [onExportStateChange, isExporting, requests.length]);
+
   const statusFilterItems: DropdownItem[] = [
     { 
       key: '2xx', 
@@ -535,6 +681,8 @@ export function NetworkTab({
               Clear all network requests
             </TooltipContent>
           </Tooltip>
+
+
 
           {/* Data Source Indicator */}
           {requests.length > 0 && requests[0]?.id?.startsWith('mock-') && (
@@ -834,6 +982,17 @@ export function NetworkTab({
         isOpen={!!selectedRequest}
         onClose={handleClosePanel}
       />
+
+      {/* Export Disclaimer Modal */}
+      <ExportDisclaimerModal
+        isOpen={showDisclaimerModal}
+        onClose={() => setShowDisclaimerModal(false)}
+        onExport={proceedWithExport}
+        onNeverShowAgain={handleNeverShowAgain}
+        requestCount={requests.length}
+      />
+
+
     </div>
   );
 } 

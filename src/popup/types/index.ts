@@ -39,6 +39,8 @@ export interface NetworkTabProps {
   selectedRequest?: NetworkRequest | null;
   onSelectedRequestChange?: (request: NetworkRequest | null) => void;
   onAllRequestsChange?: (requests: NetworkRequest[]) => void;
+  onExportHARRef?: (exportHAR: () => void) => void;
+  onExportStateChange?: (state: { isExporting: boolean; hasData: boolean }) => void;
 }
 
 export type ExportFormat = 'json' | 'har'; 

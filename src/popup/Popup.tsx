@@ -1,7 +1,7 @@
 import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
-import { type TabType, type ExportFormat, type NetworkRequest } from './types'
+import { type TabType, type NetworkRequest } from './types'
 import { theme } from './theme'
 import { Header } from './components/Header'
 import { TabNavigation } from './components/TabNavigation'
@@ -107,13 +107,12 @@ function Popup() {
     }
   }, [isDetached])
 
-  // Mock data to check if Network tab has data
-  const hasNetworkData = networkRequestsCount > 0
-
-  const handleExport = (format: ExportFormat) => {
-    // TODO: Implement export functionality
-    console.log(`Exporting as ${format}`)
-  }
+  // Export HAR functionality
+  const [exportHARFunction, setExportHARFunction] = useState<(() => void) | null>(null)
+  const [exportState, setExportState] = useState<{ isExporting: boolean; hasData: boolean }>({
+    isExporting: false,
+    hasData: false
+  })
 
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab)
@@ -187,9 +186,10 @@ function Popup() {
             <TabNavigation
               activeTab={activeTab}
               onTabChange={handleTabChange}
-              hasNetworkData={hasNetworkData}
-              onExport={handleExport}
               onAddMockData={addMockDataFunction || undefined}
+              hasNetworkData={exportState.hasData}
+              onExportHAR={exportHARFunction || undefined}
+              isExporting={exportState.isExporting}
             />
 
             {/* Tab Content */}
@@ -214,10 +214,39 @@ function Popup() {
                   selectedRequest={selectedRequest}
                   onSelectedRequestChange={handleSelectedRequestChange}
                   onAllRequestsChange={setAllRequests}
+                                      onExportHARRef={(func) => {
+                      setExportHARFunction(() => func);
+                    }}
+                  onExportStateChange={setExportState}
                 />
               )}
               {activeTab === 'Settings' && <SettingsTab />}
             </div>
+          </div>
+
+          {/* Privacy Notice */}
+          <div style={{
+            marginTop: theme.spacing.sm,
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+            background: 'rgba(139, 92, 246, 0.05)',
+            border: `1px solid rgba(139, 92, 246, 0.1)`,
+            fontSize: theme.typography.sizes.xs,
+            color: theme.colors.text.muted,
+            display: 'flex',
+            alignItems: 'center',
+            gap: theme.spacing.xs,
+            borderRadius: theme.borderRadius.md,
+            flexWrap: 'wrap',
+          }}>
+            <span style={{
+              fontWeight: theme.typography.weights.medium,
+              color: theme.colors.text.secondary,
+            }}>
+              🔒 Privacy Protected:
+            </span>
+            <span>
+              All data stored locally in your browser. Auto-clears after 5 minutes or 1,000 requests. Nothing sent to external servers.
+            </span>
           </div>
         </main>
       </div>

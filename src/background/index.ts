@@ -178,13 +178,27 @@ type RequestEntry = {
   type: string;
   timeStamp: number;
   pinned: boolean;
-  // Add more fields as needed (headers, initiator, etc.)
+  // Headers and body data
+  requestHeaders: Record<string, string>;
+  responseHeaders: Record<string, string>;
+  responseBody?: string;
+  // Additional fields for compatibility
+  domain: string;
+  size?: string;
+  error?: {
+    message: string;
+    stack?: string;
+  };
 };
 
 const LOG_RETENTION_MS = 5 * 60 * 1000; // 5 minutes
 const LOG_MAX_ENTRIES = 1000;
 
 const requestLog: Map<string, RequestEntry> = new Map();
+// Temporary storage for request headers (keyed by requestId)
+const requestHeadersMap: Map<string, Record<string, string>> = new Map();
+// Temporary storage for response headers (keyed by requestId)  
+const responseHeadersMap: Map<string, Record<string, string>> = new Map();
 
 function pruneLog() {
   const now = Date.now();
@@ -246,6 +260,10 @@ async function clearAllRequests() {
   const prevSize = requestLog.size;
   requestLog.clear();
   
+  // Clear temporary header storage
+  requestHeadersMap.clear();
+  responseHeadersMap.clear();
+  
   // Clear storage
   try {
     await chrome.storage.session.remove('requestLog');
@@ -301,11 +319,106 @@ function pruneLogAndPersist() {
 
 console.log('Background service worker loaded');
 
+// Capture request headers
+chrome.webRequest.onSendHeaders.addListener(
+  (details) => {
+    // Note: Can't check tracking state here due to async limitations
+    // Will be filtered in onCompleted instead
+    
+    if (details.url.includes('chrome-extension://') ||
+        details.url.includes('moz-extension://') ||
+        details.url.includes('edge-extension://')) {
+      return;
+    }
+
+    // Store request headers temporarily
+    const headers: Record<string, string> = {};
+    if (details.requestHeaders) {
+      details.requestHeaders.forEach(header => {
+        headers[header.name] = header.value || '';
+      });
+    }
+    
+    // Reconstruct missing HTTP/2 pseudo-headers that Chrome filters out
+    // These are what DevTools shows but webRequest API doesn't provide
+    try {
+      const url = new URL(details.url);
+      headers[':authority'] = url.host;
+      headers[':method'] = details.method;
+      headers[':path'] = url.pathname + url.search;
+      headers[':scheme'] = url.protocol.slice(0, -1); // Remove trailing ':'
+    } catch (error) {
+      console.warn('BackTrack: Failed to reconstruct pseudo-headers for', details.url, error);
+    }
+    
+    requestHeadersMap.set(details.requestId.toString(), headers);
+    
+    // Debug logging
+    console.log('BackTrack: Request headers captured for', details.url, 
+      'headers:', Object.keys(headers).length, 'requestId:', details.requestId);
+  },
+  { urls: ['<all_urls>'] },
+  ['requestHeaders']
+);
+
+// Capture response headers
+chrome.webRequest.onHeadersReceived.addListener(
+  (details) => {
+    // Note: Can't check tracking state here due to async limitations
+    // Will be filtered in onCompleted instead
+    
+    if (details.url.includes('chrome-extension://') ||
+        details.url.includes('moz-extension://') ||
+        details.url.includes('edge-extension://')) {
+      return undefined;
+    }
+
+    // Store response headers temporarily
+    const headers: Record<string, string> = {};
+    if (details.responseHeaders) {
+      details.responseHeaders.forEach(header => {
+        headers[header.name] = header.value || '';
+      });
+    }
+    responseHeadersMap.set(details.requestId.toString(), headers);
+    
+    // Debug logging
+    console.log('BackTrack: Response headers captured for', details.url, 
+      'headers:', Object.keys(headers).length, 'requestId:', details.requestId);
+    
+    return undefined;
+  },
+  { urls: ['<all_urls>'] },
+  ['responseHeaders']
+);
+
 chrome.webRequest.onCompleted.addListener(
   async (details) => {
-    // Check if tracking is enabled before capturing requests
+    const requestId = details.requestId.toString();
+    
+    // Get headers from temporary storage FIRST (before any early returns)
+    const requestHeaders = requestHeadersMap.get(requestId) || {};
+    const responseHeaders = responseHeadersMap.get(requestId) || {};
+    
+    // Clean up temporary storage immediately to prevent memory leaks
+    requestHeadersMap.delete(requestId);
+    responseHeadersMap.delete(requestId);
+
+    // Debug header capture
+    if (Object.keys(requestHeaders).length > 0 || Object.keys(responseHeaders).length > 0) {
+      console.log('BackTrack: Headers captured for', details.url, {
+        requestHeaders: Object.keys(requestHeaders).length,
+        responseHeaders: Object.keys(responseHeaders).length,
+        requestId: requestId
+      });
+    } else {
+      console.warn('BackTrack: No headers captured for', details.url, 'requestId:', requestId);
+    }
+
+    // Check if tracking is enabled before saving requests
     const isTrackingEnabled = await getTrackingState();
     if (!isTrackingEnabled) {
+      console.log('BackTrack: Tracking disabled, skipping request storage');
       return; // Skip capturing if tracking is disabled
     }
 
@@ -317,6 +430,25 @@ chrome.webRequest.onCompleted.addListener(
     }
 
     const id = `${details.requestId}-${details.timeStamp}`;
+
+    // Extract domain from URL
+    let domain = '';
+    try {
+      domain = new URL(details.url).hostname;
+    } catch {
+      domain = details.url;
+    }
+
+    // Calculate response size
+    let size: string | undefined;
+    const contentLength = responseHeaders['content-length'] || responseHeaders['Content-Length'];
+    if (contentLength) {
+      const bytes = parseInt(contentLength);
+      if (bytes < 1024) size = `${bytes} B`;
+      else if (bytes < 1024 * 1024) size = `${(bytes / 1024).toFixed(1)} KB`;
+      else size = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
     const entry: RequestEntry = {
       id,
       url: details.url,
@@ -326,11 +458,17 @@ chrome.webRequest.onCompleted.addListener(
       type: details.type,
       timeStamp: details.timeStamp,
       pinned: false,
+      requestHeaders,
+      responseHeaders,
+      domain,
+      size,
     };
     requestLog.set(id, entry);
     pruneLogAndPersist();
     
-    console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, `(${requestLog.size} total)`);
+    console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, 
+      `(${requestLog.size} total)`, 
+      `Headers stored: req=${Object.keys(requestHeaders).length}, resp=${Object.keys(responseHeaders).length}`);
   },
   { urls: ['<all_urls>'] }
 );
