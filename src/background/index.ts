@@ -7,6 +7,12 @@
 // Extension icon management
 const STORAGE_KEY = 'backtrack-enabled';
 
+// Detached window management
+let detachedWindowId: number | null = null;
+
+// Browser window tracking for auto-close functionality
+let browserWindowIds: Set<number> = new Set();
+
 async function updateExtensionIcon(enabled: boolean) {
   try {
     const iconColor = enabled ? 'green' : 'red';
@@ -33,16 +39,126 @@ async function getTrackingState(): Promise<boolean> {
   }
 }
 
+// Dynamic popup management - disable popup when detached window exists
+async function updatePopupState() {
+  try {
+    if (detachedWindowId) {
+      // Check if detached window still exists
+      try {
+        await chrome.windows.get(detachedWindowId);
+        // Window exists, disable popup
+        await chrome.action.setPopup({ popup: '' });
+      } catch {
+        // Window doesn't exist anymore, clear reference and restore popup
+        detachedWindowId = null;
+        await chrome.action.setPopup({ popup: 'index.html' });
+      }
+    } else {
+      // No detached window, ensure popup is enabled
+      await chrome.action.setPopup({ popup: 'index.html' });
+    }
+  } catch (error) {
+    console.error('BackTrack: Error updating popup state:', error);
+  }
+}
+
+// Handle toolbar icon clicks when popup is disabled (detached window exists)
+chrome.action.onClicked.addListener(async () => {
+  try {
+    if (detachedWindowId) {
+      // Focus existing detached window
+      await chrome.windows.update(detachedWindowId, { focused: true });
+      console.log('BackTrack: Focused existing detached window');
+    }
+  } catch (error) {
+    console.error('BackTrack: Error handling action click:', error);
+  }
+});
+
+// Track browser window creation
+chrome.windows.onCreated.addListener((window) => {
+  if (window.type === 'normal') {
+    browserWindowIds.add(window.id!);
+  }
+});
+
+// Track detached window lifecycle and browser window closing
+chrome.windows.onRemoved.addListener(async (windowId) => {
+  // Handle detached window closing
+  if (windowId === detachedWindowId) {
+    detachedWindowId = null;
+    console.log('BackTrack: Detached window closed');
+    // Restore popup functionality
+    await updatePopupState();
+  }
+  
+  // Handle browser window closing
+  if (browserWindowIds.has(windowId)) {
+    browserWindowIds.delete(windowId);
+    
+    // Check if this was the last browser window
+    const remainingWindows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    const normalWindows = remainingWindows.filter(w => w.type === 'normal');
+    
+    if (normalWindows.length === 0 && detachedWindowId) {
+      // No more browser windows, close detached window
+      try {
+        await chrome.windows.remove(detachedWindowId);
+        console.log('BackTrack: Auto-closed detached window as browser closed');
+      } catch (error) {
+        console.log('BackTrack: Error auto-closing detached window:', error);
+      }
+      detachedWindowId = null;
+    }
+  }
+});
+
+// Handle extension suspension (browser closing)
+chrome.runtime.onSuspend.addListener(async () => {
+  if (detachedWindowId) {
+    try {
+      await chrome.windows.remove(detachedWindowId);
+      console.log('BackTrack: Closed detached window on browser shutdown');
+    } catch (error) {
+      console.log('BackTrack: Error closing detached window on shutdown:', error);
+    }
+  }
+});
+
+// Initialize browser window tracking
+async function initializeBrowserWindowTracking() {
+  try {
+    const windows = await chrome.windows.getAll({ windowTypes: ['normal'] });
+    browserWindowIds.clear();
+    windows.forEach(window => {
+      if (window.type === 'normal' && window.id) {
+        browserWindowIds.add(window.id);
+      }
+    });
+    console.log(`BackTrack: Tracking ${browserWindowIds.size} browser windows`);
+  } catch (error) {
+    console.error('BackTrack: Error initializing window tracking:', error);
+  }
+}
+
 // Initialize extension icon on startup
 chrome.runtime.onStartup.addListener(async () => {
   const enabled = await getTrackingState();
   await updateExtensionIcon(enabled);
+  // Ensure popup state is correct on startup
+  await updatePopupState();
+  // Initialize browser window tracking
+  await initializeBrowserWindowTracking();
 });
 
 // Initialize extension icon when extension is installed or enabled
 chrome.runtime.onInstalled.addListener(async () => {
   const enabled = await getTrackingState();
   await updateExtensionIcon(enabled);
+  // Ensure popup state is correct on install
+  await updatePopupState();
+  // Initialize browser window tracking
+  await initializeBrowserWindowTracking();
 });
 
 // Listen for storage changes to update icon
@@ -125,6 +241,56 @@ async function restoreLogFromStorage() {
   pruneLog();
 }
 
+// Function to clear all requests
+async function clearAllRequests() {
+  const prevSize = requestLog.size;
+  requestLog.clear();
+  
+  // Clear storage
+  try {
+    await chrome.storage.session.remove('requestLog');
+  } catch (e) {
+    try {
+      await chrome.storage.local.remove('requestLog');
+    } catch (err) {
+      console.error('BackTrack: Failed to clear storage during navigation', err);
+    }
+  }
+  
+  if (prevSize > 0) {
+    console.log(`BackTrack: Auto-cleared ${prevSize} requests on page navigation`);
+  }
+}
+
+// Auto-clear requests on page navigation/refresh
+// Only clear on main frame navigations to actual web pages (not extension pages, iframes, etc.)
+chrome.webNavigation.onCommitted.addListener(async (details) => {
+  // Only process main frame navigations (not iframes)
+  if (details.frameId !== 0) {
+    return;
+  }
+  
+  // Skip extension URLs and other internal Chrome URLs
+  if (details.url.startsWith('chrome://') || 
+      details.url.startsWith('chrome-extension://') ||
+      details.url.startsWith('moz-extension://') ||
+      details.url.startsWith('edge-extension://') ||
+      details.url.startsWith('about:') ||
+      details.url.startsWith('data:') ||
+      details.url.startsWith('blob:')) {
+    return;
+  }
+  
+  // Check if tracking is enabled before auto-clearing
+  const isTrackingEnabled = await getTrackingState();
+  if (!isTrackingEnabled) {
+    return;
+  }
+  
+  // Clear all requests for this new page
+  await clearAllRequests();
+}, { url: [{ schemes: ['http', 'https'] }] });
+
 // Restore log on startup
 restoreLogFromStorage();
 
@@ -143,6 +309,13 @@ chrome.webRequest.onCompleted.addListener(
       return; // Skip capturing if tracking is disabled
     }
 
+    // Skip extension requests entirely - don't capture them at all
+    if (details.url.includes('chrome-extension://') ||
+        details.url.includes('moz-extension://') ||
+        details.url.includes('edge-extension://')) {
+      return; // Skip all extension requests
+    }
+
     const id = `${details.requestId}-${details.timeStamp}`;
     const entry: RequestEntry = {
       id,
@@ -156,10 +329,8 @@ chrome.webRequest.onCompleted.addListener(
     };
     requestLog.set(id, entry);
     pruneLogAndPersist();
-    // Only log non-extension requests to reduce noise
-    if (!details.url.includes('chrome-extension://')) {
-      console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, `(${requestLog.size} total)`);
-    }
+    
+    console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, `(${requestLog.size} total)`);
   },
   { urls: ['<all_urls>'] }
 );
@@ -172,6 +343,8 @@ chrome.webRequest.onCompleted.addListener(
  * - { type: 'CLEAR_LOG' } -> Response: { success: boolean }
  * - { type: 'GET_TRACKING_STATE' } -> Response: { enabled: boolean }
  * - { type: 'SET_TRACKING_STATE', enabled: boolean } -> Response: { success: boolean }
+ * - { type: 'REGISTER_DETACHED_WINDOW', windowId: number } -> Response: { success: boolean }
+ * - { type: 'ATTACH_TO_POPUP' } -> Response: { success: boolean }
  */
 chrome.runtime.onMessage.addListener(async (msg, _sender, sendResponse) => {
   if (msg && msg.type === 'GET_LOG') {
@@ -225,6 +398,43 @@ chrome.runtime.onMessage.addListener(async (msg, _sender, sendResponse) => {
     } catch (error) {
       console.error('BackTrack: Failed to set tracking state:', error);
       sendResponse({ success: false, error: String(error) });
+    }
+    return true;
+  }
+
+  if (msg && msg.type === 'REGISTER_DETACHED_WINDOW' && typeof msg.windowId === 'number') {
+    detachedWindowId = msg.windowId;
+    console.log('BackTrack: Registered detached window:', msg.windowId);
+    // Update popup state to disable popup
+    await updatePopupState();
+    sendResponse({ success: true });
+    return true;
+  }
+
+  if (msg && msg.type === 'ATTACH_TO_POPUP') {
+    try {
+      // Clear detached window reference
+      detachedWindowId = null;
+      console.log('BackTrack: Attaching to popup mode');
+      
+      // Restore popup functionality
+      await chrome.action.setPopup({ popup: 'index.html' });
+      console.log('BackTrack: Popup functionality restored');
+      
+      // Try to open popup after a small delay
+      setTimeout(async () => {
+        try {
+          await chrome.action.openPopup();
+          console.log('BackTrack: Popup opened successfully');
+        } catch (error) {
+          console.log('BackTrack: Auto-open popup failed (user can click toolbar icon):', error instanceof Error ? error.message : error);
+        }
+      }, 200);
+      
+      sendResponse({ success: true });
+    } catch (error) {
+      console.error('BackTrack: Error in ATTACH_TO_POPUP:', error);
+      sendResponse({ success: false });
     }
     return true;
   }

@@ -46,6 +46,7 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
       {requests.map((request) => {
         const isSelected = selectedRequest?.id === request.id;
         const isViewed = request.viewed === true;
+        const isError = request.status >= 400;
         const statusColor = getStatusColor(request.status);
         
         return (
@@ -92,27 +93,7 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
                 gap: '4px',
               }}
             >
-              {/* Unread Indicator Dot - matches comfortable view */}
-              {!isViewed && (
-                <div
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: request.status >= 400 
-                      ? 'rgba(255, 76, 76, 0.9)'
-                      : request.status >= 300
-                        ? 'rgba(255, 170, 64, 0.9)'
-                        : 'rgba(0, 214, 127, 0.9)',
-                    flexShrink: 0,
-                    boxShadow: request.status >= 400 
-                      ? '0 0 4px rgba(255, 76, 76, 0.5)'
-                      : request.status >= 300
-                        ? '0 0 4px rgba(255, 170, 64, 0.5)'
-                        : '0 0 4px rgba(0, 214, 127, 0.5)',
-                  }}
-                />
-              )}
+
               <span
                 style={{
                   color: statusColor,
@@ -128,7 +109,7 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
               style={{ 
                 width: '60px', 
                 flexShrink: 0,
-                color: theme.colors.text.secondary,
+                color: isError ? 'rgba(255, 76, 76, 0.9)' : theme.colors.text.secondary,
                 fontWeight: theme.typography.weights.medium,
               }}
             >
@@ -140,7 +121,7 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
               style={{ 
                 flex: 1, 
                 minWidth: 0,
-                color: theme.colors.text.primary,
+                color: isError ? 'rgba(255, 76, 76, 0.9)' : theme.colors.text.primary,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -168,7 +149,7 @@ export function NetworkRequestTable({ requests, selectedRequest, onSelectRequest
               style={{ 
                 width: '100px', 
                 flexShrink: 0,
-                color: theme.colors.text.muted,
+                color: isError ? 'rgba(255, 76, 76, 0.7)' : theme.colors.text.muted,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',

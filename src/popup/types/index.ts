@@ -35,6 +35,10 @@ export interface NetworkTabProps {
   onRequestsCountChange: (count: number) => void;
   onErrorsCountChange?: (count: number) => void;
   onAddMockDataRef?: (addMockData: () => void) => void;
+  isDetached?: boolean;
+  selectedRequest?: NetworkRequest | null;
+  onSelectedRequestChange?: (request: NetworkRequest | null) => void;
+  onAllRequestsChange?: (requests: NetworkRequest[]) => void;
 }
 
 export type ExportFormat = 'json' | 'har'; 

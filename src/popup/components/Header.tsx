@@ -7,6 +7,8 @@ interface HeaderProps {
   requestCount?: number;
   errorCount?: number;
   onToggleActive?: (active: boolean) => void;
+  isDetached?: boolean;
+  selectedRequestId?: string | null;
 }
 
 // Persistent state management through Chrome storage only
@@ -15,7 +17,7 @@ interface HeaderProps {
 
 
 
-export function Header({ requestCount = 0, errorCount = 0, onToggleActive }: HeaderProps) {
+export function Header({ requestCount = 0, errorCount = 0, onToggleActive, isDetached = false, selectedRequestId = null }: HeaderProps) {
   // Start with null to indicate unloaded state
   const [internalActive, setInternalActive] = useState<boolean | null>(null);
   const [isDetachedWindow, setIsDetachedWindow] = useState(false);
@@ -92,8 +94,10 @@ export function Header({ requestCount = 0, errorCount = 0, onToggleActive }: Hea
   return (
     <header
       style={{
-        height: '56px',
-        padding: `${theme.spacing.md} ${theme.spacing.lg}`,
+        height: isDetached ? '80px' : '56px',
+        padding: isDetached 
+          ? `${theme.spacing.lg} ${theme.spacing.xl}` 
+          : `${theme.spacing.md} ${theme.spacing.lg}`,
         background: `linear-gradient(135deg, ${theme.colors.background.primary} 0%, rgba(30, 32, 38, 0.95) 100%)`,
         borderBottom: `1px solid ${theme.colors.border.secondary}`,
         backdropFilter: 'blur(12px)',
@@ -263,20 +267,34 @@ export function Header({ requestCount = 0, errorCount = 0, onToggleActive }: Hea
           gap: theme.spacing.md,
         }}
       >
-        {/* Detach Button - Only show if not already detached */}
-        {!isDetachedWindow && (
+        {/* Detach/Attach Button */}
+        {!isDetachedWindow && !isDetached ? (
+          // Detach Button - Only show if not already detached
           <button
             onClick={() => {
               // Create detached window with minimal chrome
+              const baseUrl = chrome.runtime.getURL('index.html') + '?detached=true'
+              const urlWithSelection = selectedRequestId 
+                ? baseUrl + '&selectedRequest=' + encodeURIComponent(selectedRequestId)
+                : baseUrl
               chrome.windows.create({
-                url: chrome.runtime.getURL('index.html') + '?detached=true',
+                url: urlWithSelection,
                 type: 'popup',
                 width: 820,
                 height: 640,
                 focused: true,
                 left: Math.round((screen.width - 820) / 2),
                 top: Math.round((screen.height - 640) / 2)
-              }).then(() => {
+              }).then((createdWindow) => {
+                // Register the detached window with background script
+                if (createdWindow.id) {
+                  chrome.runtime.sendMessage({
+                    type: 'REGISTER_DETACHED_WINDOW',
+                    windowId: createdWindow.id
+                  }).catch(err => {
+                    console.log('Failed to register detached window:', err);
+                  });
+                }
                 // Close current popup
                 window.close();
               }).catch(_err => {
@@ -313,7 +331,58 @@ export function Header({ requestCount = 0, errorCount = 0, onToggleActive }: Hea
             </svg>
             Detach
           </button>
-        )}
+        ) : isDetached ? (
+          // Attach Button - Only show when in detached mode
+          <button
+            onClick={async () => {
+              try {
+                // Send message to restore popup functionality  
+                await chrome.runtime.sendMessage({
+                  type: 'ATTACH_TO_POPUP'
+                });
+                
+                console.log('BackTrack: Restored popup functionality, closing detached window');
+                
+                // Close the detached window immediately
+                // The background script automatically restores popup functionality
+                // User can now click the toolbar icon to open the popup
+                window.close();
+                
+              } catch (error) {
+                console.log('BackTrack: Error in attach process:', error);
+                window.close();
+              }
+            }}
+            style={{
+              padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+              background: 'rgba(255, 255, 255, 0.1)',
+              border: `1px solid rgba(255, 255, 255, 0.2)`,
+              borderRadius: theme.borderRadius.md,
+              color: theme.colors.text.secondary,
+              fontSize: theme.typography.sizes.xs,
+              cursor: 'pointer',
+              transition: 'all 0.2s ease',
+              display: 'flex',
+              alignItems: 'center',
+              gap: theme.spacing.xs,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+              e.currentTarget.style.color = theme.colors.text.primary;
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              e.currentTarget.style.color = theme.colors.text.secondary;
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>
+            </svg>
+            Attach
+          </button>
+        ) : null}
 
         {/* BackTrack Logo */}
         <img

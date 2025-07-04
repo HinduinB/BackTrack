@@ -25,6 +25,6 @@ export default defineManifest({
     48: 'icons/backtrack-48.png',
     128: 'icons/backtrack-128.png',
   },
-  permissions: ['storage', 'scripting', 'activeTab', 'webRequest', 'webRequestBlocking', 'windows'],
+  permissions: ['storage', 'scripting', 'activeTab', 'webRequest', 'webRequestBlocking', 'windows', 'webNavigation'],
   host_permissions: ['<all_urls>'],
 }); 

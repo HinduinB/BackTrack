@@ -1,7 +1,7 @@
 import { StrictMode, useState, useEffect } from 'react'
 import { createRoot } from 'react-dom/client'
 import '../index.css'
-import { type TabType, type ExportFormat } from './types'
+import { type TabType, type ExportFormat, type NetworkRequest } from './types'
 import { theme } from './theme'
 import { Header } from './components/Header'
 import { TabNavigation } from './components/TabNavigation'
@@ -16,9 +16,42 @@ function Popup() {
   const [networkRequestsCount, setNetworkRequestsCount] = useState(7) // Initial mock count
   const [networkErrorsCount, setNetworkErrorsCount] = useState(3) // Initial mock error count
   const [addMockDataFunction, setAddMockDataFunction] = useState<(() => void) | null>(null)
+  const [selectedRequest, setSelectedRequest] = useState<NetworkRequest | null>(null)
+  const [allRequests, setAllRequests] = useState<NetworkRequest[]>([])
+  
+  // Debug helper for selectedRequest changes
+  const handleSelectedRequestChange = (request: NetworkRequest | null) => {
+    console.log('BackTrack Popup: handleSelectedRequestChange called with:', request?.id);
+    console.log('BackTrack Popup: Current selectedRequest before change:', selectedRequest?.id);
+    setSelectedRequest(request);
+    console.log('BackTrack Popup: setSelectedRequest called with:', request?.id);
+  }
+  
+  // Debug current selected request
+  useEffect(() => {
+    console.log('BackTrack Popup: Current selectedRequest state:', selectedRequest?.id || 'null');
+  }, [selectedRequest])
   
   // Check if we're in detached mode
   const isDetached = new URLSearchParams(window.location.search).get('detached') === 'true'
+  
+  // Get selected request ID from URL parameters
+  const urlParams = new URLSearchParams(window.location.search)
+  const selectedRequestId = urlParams.get('selectedRequest')
+  
+  // Restore selected request when requests are loaded and we have a selectedRequestId
+  useEffect(() => {
+    if (selectedRequestId && allRequests.length > 0) {
+      const foundRequest = allRequests.find(req => req.id === selectedRequestId)
+      if (foundRequest) {
+        // Only restore if we don't have the same request already selected (avoid unnecessary updates)
+        if (!selectedRequest || selectedRequest.id !== foundRequest.id) {
+          console.log('BackTrack Popup: Restoring selected request from URL:', foundRequest.id);
+          handleSelectedRequestChange(foundRequest)
+        }
+      }
+    }
+  }, [selectedRequestId, allRequests]) // Removed selectedRequest from dependencies to avoid blocking restoration
   
   // Set document title and favicon for detached mode
   useEffect(() => {
@@ -104,6 +137,8 @@ function Popup() {
         <Header 
           requestCount={networkRequestsCount}
           errorCount={networkErrorsCount}
+          isDetached={isDetached}
+          selectedRequestId={selectedRequest?.id || null}
         />
 
         {/* Main Content */}
@@ -124,7 +159,7 @@ function Popup() {
               position: 'relative',
               background: `linear-gradient(135deg, ${theme.colors.background.cardElevated} 0%, ${theme.colors.background.card} 100%)`,
               borderRadius: isDetached ? theme.borderRadius.md : theme.borderRadius.lg,
-              overflow: 'hidden',
+              overflow: 'visible',
               boxShadow: isDetached 
                 ? `${theme.shadows.xl}, inset 0 1px 0 rgba(255, 255, 255, 0.08)`
                 : `${theme.shadows.floating}, inset 0 1px 0 rgba(255, 255, 255, 0.1)`,
@@ -165,6 +200,8 @@ function Popup() {
                 flex: isDetached ? '1' : 'none',
                 display: 'flex',
                 flexDirection: 'column',
+                borderBottomLeftRadius: isDetached ? theme.borderRadius.md : theme.borderRadius.lg,
+                borderBottomRightRadius: isDetached ? theme.borderRadius.md : theme.borderRadius.lg,
               }}
             >
               {activeTab === 'Console' && <ConsoleTab />}
@@ -173,6 +210,10 @@ function Popup() {
                   onRequestsCountChange={setNetworkRequestsCount}
                   onErrorsCountChange={setNetworkErrorsCount}
                   onAddMockDataRef={setAddMockDataFunction}
+                  isDetached={isDetached}
+                  selectedRequest={selectedRequest}
+                  onSelectedRequestChange={handleSelectedRequestChange}
+                  onAllRequestsChange={setAllRequests}
                 />
               )}
               {activeTab === 'Settings' && <SettingsTab />}

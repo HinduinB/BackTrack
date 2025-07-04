@@ -6,8 +6,8 @@ export interface StatusBadgeProps {
 
 export function getStatusColor(status: number): string {
   if (status >= 200 && status < 300) return theme.colors.status.success;
-  if (status >= 300 && status < 400) return theme.colors.status.info;
-  if (status >= 400 && status < 500) return theme.colors.status.warning;
+  if (status >= 300 && status < 400) return theme.colors.primary.blue;
+  if (status >= 400 && status < 500) return theme.colors.status.error;
   return theme.colors.status.error;
 }
 

@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Business strategy and planning (keep private)
+PROJECT_MILESTONES.md

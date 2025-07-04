@@ -81,27 +81,7 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
                 gap: '6px',
               }}
             >
-              {/* Unread Indicator Dot */}
-              {!isViewed && (
-                <div
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    background: request.status >= 400 
-                      ? 'rgba(255, 76, 76, 0.9)'
-                      : request.status >= 300
-                        ? 'rgba(255, 170, 64, 0.9)'
-                        : 'rgba(0, 214, 127, 0.9)',
-                    flexShrink: 0,
-                    boxShadow: request.status >= 400 
-                      ? '0 0 4px rgba(255, 76, 76, 0.5)'
-                      : request.status >= 300
-                        ? '0 0 4px rgba(255, 170, 64, 0.5)'
-                        : '0 0 4px rgba(0, 214, 127, 0.5)',
-                  }}
-                />
-              )}
+
 
               {/* Status Badge */}
               <div style={{ flexShrink: 0 }}>
@@ -115,12 +95,12 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
                   minWidth: '42px',
                   fontSize: theme.typography.sizes.xs,
                   fontWeight: theme.typography.weights.medium,
-                  color: theme.colors.text.secondary,
+                  color: isError ? 'rgba(255, 76, 76, 0.9)' : theme.colors.text.secondary,
                   textAlign: 'center',
                   padding: '1px 4px',
-                  background: 'rgba(255, 255, 255, 0.05)',
+                  background: isError ? 'rgba(255, 76, 76, 0.1)' : 'rgba(255, 255, 255, 0.05)',
                   borderRadius: theme.borderRadius.sm,
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  border: isError ? '1px solid rgba(255, 76, 76, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)',
                 }}
               >
                 {request.method}
@@ -132,7 +112,7 @@ export function NetworkRequestList({ requests, selectedRequest, onSelectRequest,
                   style={{
                     fontSize: theme.typography.sizes.sm,
                     fontWeight: theme.typography.weights.medium,
-                    color: theme.colors.text.primary,
+                    color: isError ? 'rgba(255, 76, 76, 0.9)' : theme.colors.text.primary,
                     marginBottom: '1px',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',

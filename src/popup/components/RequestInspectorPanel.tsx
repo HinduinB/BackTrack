@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { type NetworkRequest } from '../types';
 import { theme } from '../theme';
 import { CloseIcon } from './ui/Icons';
@@ -66,12 +67,20 @@ function getStatusGradient(statusCode: number): { background: string; dotColor: 
 export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspectorPanelProps) {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [isAnimating, setIsAnimating] = useState(false);
+  
+  // Debug helper for close tracking
+  const handleClose = () => {
+    console.log('BackTrack RequestInspectorPanel: Close button clicked');
+    console.log('BackTrack RequestInspectorPanel: onClose callback available:', !!onClose);
+    console.log('BackTrack RequestInspectorPanel: Current request:', request?.id);
+    onClose();
+  };
 
   // Handle ESC key
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
-        onClose();
+        handleClose();
       }
     };
 
@@ -137,7 +146,7 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
 
   const activeTabIndex = tabs.findIndex(tab => tab.id === activeTab);
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -153,7 +162,7 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
           opacity: isOpen ? 1 : 0,
           transition: 'opacity 500ms ease-out',
         }}
-        onClick={onClose}
+        onClick={handleClose}
       />
 
       {/* Slide-in Panel */}
@@ -236,7 +245,7 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
                 <RippleButton
                   variant="ghost"
                   size="sm"
-                  onClick={onClose}
+                  onClick={handleClose}
                   rippleColor="rgba(255, 255, 255, 0.2)"
                   style={{
                     padding: theme.spacing.sm,
@@ -344,9 +353,8 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
           {tabs.find(tab => tab.id === activeTab)?.content}
         </div>
       </div>
-
-
-    </>
+    </>,
+    document.body
   );
 }
 

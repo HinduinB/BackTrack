@@ -260,10 +260,37 @@ const mockRequests: NetworkRequest[] = [
   }
 ];
 
-export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMockDataRef }: NetworkTabProps) {
-  const [selectedRequest, setSelectedRequest] = useState<NetworkRequest | null>(null);
+export function NetworkTab({ 
+  onRequestsCountChange, 
+  onErrorsCountChange, 
+  onAddMockDataRef, 
+  isDetached = false,
+  selectedRequest = null,
+  onSelectedRequestChange,
+  onAllRequestsChange
+}: NetworkTabProps) {
   const [requests, setRequests] = useState<NetworkRequest[]>([]);
   const [isLoadingRealData, setIsLoadingRealData] = useState(true);
+  
+  // Notify parent about all requests changes
+  useEffect(() => {
+    onAllRequestsChange?.(requests);
+  }, [requests, onAllRequestsChange]);
+  
+  // Ensure we always have a working close handler
+  const handleClosePanel = () => {
+    console.log('BackTrack: Close panel called');
+    console.log('BackTrack: Current selectedRequest:', selectedRequest?.id);
+    console.log('BackTrack: onSelectedRequestChange available:', !!onSelectedRequestChange);
+    console.log('BackTrack: isDetached mode:', isDetached);
+    
+    if (onSelectedRequestChange) {
+      onSelectedRequestChange(null);
+      console.log('BackTrack: Called onSelectedRequestChange(null)');
+    } else {
+      console.warn('BackTrack: onSelectedRequestChange not provided, panel cannot close properly');
+    }
+  };
   const [isTrackingEnabled, setIsTrackingEnabled] = useState(true);
   
   // Filter state
@@ -344,8 +371,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
     const matchesStatus = !statusFilter || 
                          (statusFilter === '2xx' && request.status >= 200 && request.status < 300) ||
                          (statusFilter === '3xx' && request.status >= 300 && request.status < 400) ||
-                         (statusFilter === '4xx' && request.status >= 400 && request.status < 500) ||
-                         (statusFilter === '5xx' && request.status >= 500);
+                         (statusFilter === 'errors' && request.status >= 400); // Combined 4xx/5xx errors
     
     const matchesMethod = !methodFilter || request.method === methodFilter;
     
@@ -375,7 +401,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
     
     // Clear local state immediately for responsive UI
     setRequests([]);
-    setSelectedRequest(null);
+    onSelectedRequestChange?.(null);
     
     // Clear background script storage
     try {
@@ -432,8 +458,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
     switch (statusRange) {
       case '2xx': return getStatusColor(200);
       case '3xx': return getStatusColor(300);
-      case '4xx': return getStatusColor(400);
-      case '5xx': return getStatusColor(500);
+      case 'errors': return getStatusColor(400); // Use red for combined errors
       default: return theme.colors.primary.purple;
     }
   };
@@ -447,21 +472,15 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
     },
     { 
       key: '3xx', 
-      label: '3xx Redirect', 
+      label: '3xx Redirects', 
       color: getStatusColor(300),
       onClick: () => { setStatusFilter('3xx'); setShowStatusDropdown(false); }
     },
     { 
-      key: '4xx', 
-      label: '4xx Client Error', 
+      key: 'errors', 
+      label: '4xx/5xx Errors', 
       color: getStatusColor(400),
-      onClick: () => { setStatusFilter('4xx'); setShowStatusDropdown(false); }
-    },
-    { 
-      key: '5xx', 
-      label: '5xx Server Error', 
-      color: getStatusColor(500),
-      onClick: () => { setStatusFilter('5xx'); setShowStatusDropdown(false); }
+      onClick: () => { setStatusFilter('errors'); setShowStatusDropdown(false); }
     },
   ];
 
@@ -484,7 +503,9 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
         padding: theme.spacing.md,
         display: 'flex',
         flexDirection: 'column',
-        height: '300px',
+        height: isDetached ? '100%' : '300px',
+        flex: isDetached ? 1 : 'none',
+        minHeight: isDetached ? 0 : 'auto',
       }}
     >
       {/* Action Buttons and Filters */}
@@ -675,7 +696,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
                       })
                     }}
                   >
-                    {statusFilter || 'Status'}
+                    {statusFilter === 'errors' ? 'Errors' : statusFilter || 'Status'}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -770,8 +791,10 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
       <div
         className="custom-scrollbar"
         style={{
-          maxHeight: '220px',
+          maxHeight: isDetached ? 'calc(100vh - 240px)' : '220px',
+          flex: isDetached ? 1 : 'none',
           overflowY: 'auto',
+          minHeight: isDetached ? '300px' : 'auto',
         }}
       >
         {!isTrackingEnabled ? (
@@ -791,14 +814,14 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
             <NetworkRequestList
               requests={filteredRequests}
               selectedRequest={selectedRequest}
-              onSelectRequest={setSelectedRequest}
+              onSelectRequest={onSelectedRequestChange || (() => {})}
               onMarkAsViewed={markRequestAsViewed}
             />
           ) : (
             <NetworkRequestTable
               requests={filteredRequests}
               selectedRequest={selectedRequest}
-              onSelectRequest={setSelectedRequest}
+              onSelectRequest={onSelectedRequestChange || (() => {})}
               onMarkAsViewed={markRequestAsViewed}
             />
           )
@@ -809,7 +832,7 @@ export function NetworkTab({ onRequestsCountChange, onErrorsCountChange, onAddMo
       <RequestInspectorPanel 
         request={selectedRequest}
         isOpen={!!selectedRequest}
-        onClose={() => setSelectedRequest(null)}
+        onClose={handleClosePanel}
       />
     </div>
   );
