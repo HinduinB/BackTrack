@@ -178,13 +178,27 @@ type RequestEntry = {
   type: string;
   timeStamp: number;
   pinned: boolean;
-  // Add more fields as needed (headers, initiator, etc.)
+  // Headers and body data
+  requestHeaders: Record<string, string>;
+  responseHeaders: Record<string, string>;
+  responseBody?: string;
+  // Additional fields for compatibility
+  domain: string;
+  size?: string;
+  error?: {
+    message: string;
+    stack?: string;
+  };
 };
 
 const LOG_RETENTION_MS = 5 * 60 * 1000; // 5 minutes
 const LOG_MAX_ENTRIES = 1000;
 
 const requestLog: Map<string, RequestEntry> = new Map();
+// Temporary storage for request headers (keyed by requestId)
+const requestHeadersMap: Map<string, Record<string, string>> = new Map();
+// Temporary storage for response headers (keyed by requestId)  
+const responseHeadersMap: Map<string, Record<string, string>> = new Map();
 
 function pruneLog() {
   const now = Date.now();
@@ -246,6 +260,10 @@ async function clearAllRequests() {
   const prevSize = requestLog.size;
   requestLog.clear();
   
+  // Clear temporary header storage
+  requestHeadersMap.clear();
+  responseHeadersMap.clear();
+  
   // Clear storage
   try {
     await chrome.storage.session.remove('requestLog');
@@ -301,6 +319,57 @@ function pruneLogAndPersist() {
 
 console.log('Background service worker loaded');
 
+// Capture request headers
+chrome.webRequest.onSendHeaders.addListener(
+  (details) => {
+    // Note: Can't check tracking state here due to async limitations
+    // Will be filtered in onCompleted instead
+    
+    if (details.url.includes('chrome-extension://') ||
+        details.url.includes('moz-extension://') ||
+        details.url.includes('edge-extension://')) {
+      return;
+    }
+
+    // Store request headers temporarily
+    const headers: Record<string, string> = {};
+    if (details.requestHeaders) {
+      details.requestHeaders.forEach(header => {
+        headers[header.name] = header.value || '';
+      });
+    }
+    requestHeadersMap.set(details.requestId.toString(), headers);
+  },
+  { urls: ['<all_urls>'] },
+  ['requestHeaders']
+);
+
+// Capture response headers
+chrome.webRequest.onHeadersReceived.addListener(
+  (details) => {
+    // Note: Can't check tracking state here due to async limitations
+    // Will be filtered in onCompleted instead
+    
+    if (details.url.includes('chrome-extension://') ||
+        details.url.includes('moz-extension://') ||
+        details.url.includes('edge-extension://')) {
+      return undefined;
+    }
+
+    // Store response headers temporarily
+    const headers: Record<string, string> = {};
+    if (details.responseHeaders) {
+      details.responseHeaders.forEach(header => {
+        headers[header.name] = header.value || '';
+      });
+    }
+    responseHeadersMap.set(details.requestId.toString(), headers);
+    return undefined;
+  },
+  { urls: ['<all_urls>'] },
+  ['responseHeaders']
+);
+
 chrome.webRequest.onCompleted.addListener(
   async (details) => {
     // Check if tracking is enabled before capturing requests
@@ -317,6 +386,34 @@ chrome.webRequest.onCompleted.addListener(
     }
 
     const id = `${details.requestId}-${details.timeStamp}`;
+    const requestId = details.requestId.toString();
+    
+    // Get headers from temporary storage
+    const requestHeaders = requestHeadersMap.get(requestId) || {};
+    const responseHeaders = responseHeadersMap.get(requestId) || {};
+    
+    // Clean up temporary storage
+    requestHeadersMap.delete(requestId);
+    responseHeadersMap.delete(requestId);
+
+    // Extract domain from URL
+    let domain = '';
+    try {
+      domain = new URL(details.url).hostname;
+    } catch {
+      domain = details.url;
+    }
+
+    // Calculate response size
+    let size: string | undefined;
+    const contentLength = responseHeaders['content-length'] || responseHeaders['Content-Length'];
+    if (contentLength) {
+      const bytes = parseInt(contentLength);
+      if (bytes < 1024) size = `${bytes} B`;
+      else if (bytes < 1024 * 1024) size = `${(bytes / 1024).toFixed(1)} KB`;
+      else size = `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
     const entry: RequestEntry = {
       id,
       url: details.url,
@@ -326,6 +423,10 @@ chrome.webRequest.onCompleted.addListener(
       type: details.type,
       timeStamp: details.timeStamp,
       pinned: false,
+      requestHeaders,
+      responseHeaders,
+      domain,
+      size,
     };
     requestLog.set(id, entry);
     pruneLogAndPersist();

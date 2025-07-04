@@ -22,6 +22,17 @@ type RequestEntry = {
   type: string;
   timeStamp: number;
   pinned: boolean;
+  // Headers and body data
+  requestHeaders: Record<string, string>;
+  responseHeaders: Record<string, string>;
+  responseBody?: string;
+  // Additional fields for compatibility
+  domain: string;
+  size?: string;
+  error?: {
+    message: string;
+    stack?: string;
+  };
 };
 
 // Transform background script data to popup format
@@ -75,14 +86,17 @@ function transformRequestEntry(entry: RequestEntry): NetworkRequest {
     timestamp: new Date(entry.timeStamp).toLocaleString(),
     duration: '0.0s', // We'll calculate this when we have timing data
     viewed: false,
-    requestHeaders: {},
-    responseHeaders: {},
-    responseBody: '',
+    // Use actual headers and body from background script
+    requestHeaders: entry.requestHeaders || {},
+    responseHeaders: entry.responseHeaders || {},
+    requestBody: undefined, // Will be added when we capture request bodies
+    responseBody: entry.responseBody || undefined,
+    error: entry.error,
     // Additional DevTools-like fields
     url: entry.url,
-    domain: url.hostname,
+    domain: entry.domain || url.hostname, // Use background-provided domain or fallback
     type: formatType(entry.type),
-    size: undefined, // We'll add size data when available
+    size: entry.size,
   };
 }
 
