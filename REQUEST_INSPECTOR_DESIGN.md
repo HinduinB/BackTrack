@@ -89,10 +89,10 @@ User clicks on: GET /api/users/profile [200] 0.3s
 🔗 URL: Full URL with copy button
 ⏱️  Duration: 0.3s 
 📅 Timestamp: Human readable
-🏷️  Response Size: 1.2 KB
-🔄 Cache Status: HIT/MISS
-📡 Protocol: HTTP/2
-🌐 Remote IP: 192.168.1.1
+🏷️  Response Size: 1.2 KB (if available)
+🔄 Cache Status: HIT/MISS/Unknown (from headers)
+📡 Protocol: HTTP/2 (if detectable, else HTTP/1.1)
+🌐 Remote IP: 192.168.1.1 (if available, else N/A)
 ```
 
 ### **Tab 2: Headers** 📋
@@ -213,4 +213,32 @@ Content-Type: application/json
 - **Efficient copying** - One-click copy actions
 - **Delightful experience** - Smooth animations and interactions
 
-This design transforms the current cramped, raw JSON dump into a professional, efficient debugging tool that developers will love to use! ✨" 
+This design transforms the current cramped, raw JSON dump into a professional, efficient debugging tool that developers will love to use! ✨
+
+## 🔒 **Chrome Extension Compliance Notes**
+
+### **✅ Fully Available Data**
+- ✅ Request/Response Headers
+- ✅ Request/Response Bodies  
+- ✅ Status Codes & Methods
+- ✅ Basic Timing (duration)
+- ✅ URL & Domain info
+- ✅ Content-Type detection
+
+### **⚠️ Limited/Fallback Data**
+- ⚠️ **Remote IP**: May fallback to "N/A" if not captured
+- ⚠️ **Protocol**: HTTP/2 detection limited, may show "HTTP/1.1" 
+- ⚠️ **Cache Status**: Limited detection, may show "Unknown"
+- ⚠️ **Detailed Timing**: Only total duration available
+- ⚠️ **Request Initiator**: Basic info only, no full call stack
+
+### **❌ Not Available**
+- ❌ **Replay Requests**: Security restrictions prevent request modification
+- ❌ **Live Performance Metrics**: No access to browser performance APIs
+- ❌ **Advanced Timing**: No DNS/Connect/TLS breakdown without additional permissions
+
+### **🛠️ Implementation Workarounds**
+- **Missing Data**: Show "N/A" with helpful tooltips
+- **Limited Timing**: Use available duration, show single bar
+- **Cache Status**: Detect from headers if available
+- **Copy Functions**: Focus on cURL, JSON, HAR export (read-only) 
