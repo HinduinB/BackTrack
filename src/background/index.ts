@@ -338,7 +338,24 @@ chrome.webRequest.onSendHeaders.addListener(
         headers[header.name] = header.value || '';
       });
     }
+    
+    // Reconstruct missing HTTP/2 pseudo-headers that Chrome filters out
+    // These are what DevTools shows but webRequest API doesn't provide
+    try {
+      const url = new URL(details.url);
+      headers[':authority'] = url.host;
+      headers[':method'] = details.method;
+      headers[':path'] = url.pathname + url.search;
+      headers[':scheme'] = url.protocol.slice(0, -1); // Remove trailing ':'
+    } catch (error) {
+      console.warn('BackTrack: Failed to reconstruct pseudo-headers for', details.url, error);
+    }
+    
     requestHeadersMap.set(details.requestId.toString(), headers);
+    
+    // Debug logging
+    console.log('BackTrack: Request headers captured for', details.url, 
+      'headers:', Object.keys(headers).length, 'requestId:', details.requestId);
   },
   { urls: ['<all_urls>'] },
   ['requestHeaders']
@@ -364,6 +381,11 @@ chrome.webRequest.onHeadersReceived.addListener(
       });
     }
     responseHeadersMap.set(details.requestId.toString(), headers);
+    
+    // Debug logging
+    console.log('BackTrack: Response headers captured for', details.url, 
+      'headers:', Object.keys(headers).length, 'requestId:', details.requestId);
+    
     return undefined;
   },
   { urls: ['<all_urls>'] },
@@ -372,9 +394,31 @@ chrome.webRequest.onHeadersReceived.addListener(
 
 chrome.webRequest.onCompleted.addListener(
   async (details) => {
-    // Check if tracking is enabled before capturing requests
+    const requestId = details.requestId.toString();
+    
+    // Get headers from temporary storage FIRST (before any early returns)
+    const requestHeaders = requestHeadersMap.get(requestId) || {};
+    const responseHeaders = responseHeadersMap.get(requestId) || {};
+    
+    // Clean up temporary storage immediately to prevent memory leaks
+    requestHeadersMap.delete(requestId);
+    responseHeadersMap.delete(requestId);
+
+    // Debug header capture
+    if (Object.keys(requestHeaders).length > 0 || Object.keys(responseHeaders).length > 0) {
+      console.log('BackTrack: Headers captured for', details.url, {
+        requestHeaders: Object.keys(requestHeaders).length,
+        responseHeaders: Object.keys(responseHeaders).length,
+        requestId: requestId
+      });
+    } else {
+      console.warn('BackTrack: No headers captured for', details.url, 'requestId:', requestId);
+    }
+
+    // Check if tracking is enabled before saving requests
     const isTrackingEnabled = await getTrackingState();
     if (!isTrackingEnabled) {
+      console.log('BackTrack: Tracking disabled, skipping request storage');
       return; // Skip capturing if tracking is disabled
     }
 
@@ -386,15 +430,6 @@ chrome.webRequest.onCompleted.addListener(
     }
 
     const id = `${details.requestId}-${details.timeStamp}`;
-    const requestId = details.requestId.toString();
-    
-    // Get headers from temporary storage
-    const requestHeaders = requestHeadersMap.get(requestId) || {};
-    const responseHeaders = responseHeadersMap.get(requestId) || {};
-    
-    // Clean up temporary storage
-    requestHeadersMap.delete(requestId);
-    responseHeadersMap.delete(requestId);
 
     // Extract domain from URL
     let domain = '';
@@ -431,7 +466,9 @@ chrome.webRequest.onCompleted.addListener(
     requestLog.set(id, entry);
     pruneLogAndPersist();
     
-    console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, `(${requestLog.size} total)`);
+    console.log('BackTrack: captured', `${details.method} ${new URL(details.url).pathname}`, 
+      `(${requestLog.size} total)`, 
+      `Headers stored: req=${Object.keys(requestHeaders).length}, resp=${Object.keys(responseHeaders).length}`);
   },
   { urls: ['<all_urls>'] }
 );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from 'react';
+import React, { useState, useEffect, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { type NetworkRequest } from '../types';
 import { theme } from '../theme';
@@ -148,6 +148,22 @@ export function RequestInspectorPanel({ request, isOpen, onClose }: RequestInspe
 
   return createPortal(
     <>
+      {/* CSS Animation Keyframes */}
+      <style>
+        {`
+          @keyframes ripple {
+            from {
+              transform: translate(-50%, -50%) scale(0);
+              opacity: 1;
+            }
+            to {
+              transform: translate(-50%, -50%) scale(4);
+              opacity: 0;
+            }
+          }
+        `}
+      </style>
+      
       {/* Backdrop */}
       <div
         style={{
@@ -625,11 +641,22 @@ function OverviewTab({ request }: { request: NetworkRequest }) {
 }
 
 function HeadersTab({ request }: { request: NetworkRequest }) {
-  const copyToClipboard = async (text: string, label: string) => {
+  const [copiedStates, setCopiedStates] = React.useState<Record<string, boolean>>({});
+
+
+
+  const copyToClipboard = async (text: string, label: string, buttonId: string) => {
     try {
       await navigator.clipboard.writeText(text);
-      // TODO: Add toast notification
       console.log(`BackTrack: Copied ${label} to clipboard`);
+      
+      // Show copied feedback
+      setCopiedStates(prev => ({ ...prev, [buttonId]: true }));
+      
+      // Reset after 2 seconds
+      setTimeout(() => {
+        setCopiedStates(prev => ({ ...prev, [buttonId]: false }));
+      }, 2000);
     } catch (error) {
       console.error('BackTrack: Failed to copy to clipboard:', error);
     }
@@ -639,14 +666,14 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
     const headerText = Object.entries(request.requestHeaders)
       .map(([key, value]) => `${key}: ${value}`)
       .join('\n');
-    copyToClipboard(headerText, 'Request Headers');
+    copyToClipboard(headerText, 'Request Headers', 'request-headers');
   };
 
   const copyAllResponseHeaders = () => {
     const headerText = Object.entries(request.responseHeaders)
       .map(([key, value]) => `${key}: ${value}`)
       .join('\n');
-    copyToClipboard(headerText, 'Response Headers');
+    copyToClipboard(headerText, 'Response Headers', 'response-headers');
   };
 
   const copyCurl = () => {
@@ -655,11 +682,15 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
       .join(' ');
     
     const curlCommand = `curl -X ${request.method} ${headersString} "${request.url}"`;
-    copyToClipboard(curlCommand, 'cURL Command');
+    copyToClipboard(curlCommand, 'cURL Command', 'curl');
   };
 
-  const renderHeaderSection = (title: string, headers: Record<string, string>, onCopyAll: () => void) => (
-    <div style={{ flex: 1, minWidth: 0 }}>
+  const renderHeaderSection = (title: string, headers: Record<string, string>, onCopyAll: () => void, buttonId: string) => (
+    <div style={{ 
+      flex: 1, 
+      minWidth: '300px', // Ensure minimum width
+      maxWidth: '100%'   // Don't exceed container
+    }}>
       <div style={{ 
         display: 'flex', 
         justifyContent: 'space-between', 
@@ -670,7 +701,7 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
       }}>
         <h3 style={{
           margin: 0,
-          fontSize: theme.typography.sizes.lg,
+          fontSize: theme.typography.sizes.md,
           fontWeight: theme.typography.weights.semibold,
           color: theme.colors.text.primary,
         }}>
@@ -680,25 +711,63 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
           onClick={onCopyAll}
           style={{
             padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
-            background: 'rgba(139, 92, 246, 0.1)',
-            border: '1px solid rgba(139, 92, 246, 0.3)',
+            background: copiedStates[buttonId] 
+              ? 'rgba(0, 214, 127, 0.2)' 
+              : 'rgba(139, 92, 246, 0.1)',
+            border: copiedStates[buttonId]
+              ? '1px solid rgba(0, 214, 127, 0.5)'
+              : '1px solid rgba(139, 92, 246, 0.3)',
             borderRadius: theme.borderRadius.md,
-            color: theme.colors.primary.purple,
+            color: copiedStates[buttonId] 
+              ? '#00D67F' 
+              : theme.colors.primary.purple,
             fontSize: theme.typography.sizes.xs,
             fontWeight: theme.typography.weights.medium,
             cursor: 'pointer',
-            transition: 'all 0.2s ease',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            whiteSpace: 'nowrap',
+            transform: copiedStates[buttonId] ? 'scale(1.05)' : 'scale(1)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
-            e.currentTarget.style.transform = 'translateY(-1px)';
+            if (!copiedStates[buttonId]) {
+              e.currentTarget.style.background = 'rgba(139, 92, 246, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
-            e.currentTarget.style.transform = 'translateY(0)';
+            if (!copiedStates[buttonId]) {
+              e.currentTarget.style.background = 'rgba(139, 92, 246, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            }
           }}
         >
-          Copy All
+          {copiedStates[buttonId] ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              ✓ Copied!
+            </span>
+          ) : (
+            'Copy All'
+          )}
+          
+          {/* Ripple animation */}
+          {copiedStates[buttonId] && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: '100%',
+                height: '100%',
+                background: 'rgba(0, 214, 127, 0.3)',
+                borderRadius: '50%',
+                transform: 'translate(-50%, -50%) scale(0)',
+                animation: 'ripple 0.6s ease-out',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
         </button>
       </div>
 
@@ -706,9 +775,10 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
         background: 'rgba(255, 255, 255, 0.02)',
         border: `1px solid ${theme.colors.border.secondary}`,
         borderRadius: theme.borderRadius.lg,
-        padding: theme.spacing.md,
-        maxHeight: '400px',
-        overflowY: 'auto'
+        padding: theme.spacing.sm,
+        maxHeight: '350px',
+        overflowY: 'auto',
+        width: '100%'
       }}>
         {Object.keys(headers).length === 0 ? (
           <div style={{
@@ -725,26 +795,31 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
               key={key}
               style={{
                 display: 'flex',
+                flexDirection: 'column',
                 padding: `${theme.spacing.xs} 0`,
                 borderBottom: `1px solid rgba(255, 255, 255, 0.05)`,
+                marginBottom: theme.spacing.xs,
               }}
             >
               <div style={{
                 fontWeight: theme.typography.weights.medium,
                 color: theme.colors.text.secondary,
-                minWidth: '120px',
-                marginRight: theme.spacing.md,
                 fontFamily: 'monospace',
-                fontSize: theme.typography.sizes.sm,
+                fontSize: theme.typography.sizes.xs,
+                marginBottom: '2px',
               }}>
                 {key}:
               </div>
               <div style={{
                 color: theme.colors.text.primary,
-                flex: 1,
-                wordBreak: 'break-all',
                 fontFamily: 'monospace',
-                fontSize: theme.typography.sizes.sm,
+                fontSize: theme.typography.sizes.xs,
+                lineHeight: '1.4',
+                wordBreak: 'break-all',
+                paddingLeft: theme.spacing.sm,
+                backgroundColor: 'rgba(255, 255, 255, 0.03)',
+                padding: theme.spacing.xs,
+                borderRadius: theme.borderRadius.sm,
               }}>
                 {value}
               </div>
@@ -761,43 +836,113 @@ function HeadersTab({ request }: { request: NetworkRequest }) {
       <div style={{ 
         display: 'flex', 
         gap: theme.spacing.sm, 
-        marginBottom: theme.spacing.lg,
-        justifyContent: 'flex-end'
+        marginBottom: theme.spacing.md,
+        justifyContent: 'flex-end',
+        flexWrap: 'wrap'
       }}>
         <button
           onClick={copyCurl}
           style={{
-            padding: `${theme.spacing.sm} ${theme.spacing.md}`,
-            background: 'rgba(0, 214, 127, 0.1)',
-            border: '1px solid rgba(0, 214, 127, 0.3)',
+            padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+            background: copiedStates['curl']
+              ? 'rgba(139, 92, 246, 0.2)'
+              : 'rgba(0, 214, 127, 0.1)',
+            border: copiedStates['curl']
+              ? '1px solid rgba(139, 92, 246, 0.5)'
+              : '1px solid rgba(0, 214, 127, 0.3)',
             borderRadius: theme.borderRadius.md,
-            color: '#00D67F',
-            fontSize: theme.typography.sizes.sm,
+            color: copiedStates['curl']
+              ? theme.colors.primary.purple
+              : '#00D67F',
+            fontSize: theme.typography.sizes.xs,
             fontWeight: theme.typography.weights.medium,
             cursor: 'pointer',
-            transition: 'all 0.2s ease',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            whiteSpace: 'nowrap',
+            transform: copiedStates['curl'] ? 'scale(1.05)' : 'scale(1)',
+            position: 'relative',
+            overflow: 'hidden',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 214, 127, 0.2)';
-            e.currentTarget.style.transform = 'translateY(-1px)';
+            if (!copiedStates['curl']) {
+              e.currentTarget.style.background = 'rgba(0, 214, 127, 0.2)';
+              e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
+            }
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.background = 'rgba(0, 214, 127, 0.1)';
-            e.currentTarget.style.transform = 'translateY(0)';
+            if (!copiedStates['curl']) {
+              e.currentTarget.style.background = 'rgba(0, 214, 127, 0.1)';
+              e.currentTarget.style.transform = 'translateY(0) scale(1)';
+            }
           }}
         >
-          Copy as cURL
+          {copiedStates['curl'] ? (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+              ✓ Copied!
+            </span>
+          ) : (
+            'Copy as cURL'
+          )}
+          
+          {/* Ripple animation */}
+          {copiedStates['curl'] && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '50%',
+                left: '50%',
+                width: '100%',
+                height: '100%',
+                background: 'rgba(139, 92, 246, 0.3)',
+                borderRadius: '50%',
+                transform: 'translate(-50%, -50%) scale(0)',
+                animation: 'ripple 0.6s ease-out',
+                pointerEvents: 'none',
+              }}
+            />
+          )}
         </button>
+      </div>
+
+      {/* Chrome Extension Limitations Notice */}
+      <div style={{
+        marginBottom: theme.spacing.lg,
+        padding: theme.spacing.sm,
+        background: 'rgba(255, 176, 32, 0.05)',
+        border: `1px solid rgba(255, 176, 32, 0.2)`,
+        borderRadius: theme.borderRadius.md,
+        fontSize: theme.typography.sizes.xs,
+        color: theme.colors.text.muted,
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: theme.spacing.xs,
+          marginBottom: '4px',
+        }}>
+          <span style={{ color: '#FFB020' }}>ℹ️</span>
+          <span style={{
+            fontWeight: theme.typography.weights.medium,
+            color: theme.colors.text.secondary,
+          }}>
+            Chrome Extension Limitations
+          </span>
+        </div>
+        <div style={{ lineHeight: '1.4' }}>
+          Some headers shown in DevTools may be filtered by Chrome for security. 
+          HTTP/2 pseudo-headers (:authority, :method, :path, :scheme) are reconstructed from request data.
+        </div>
       </div>
 
       {/* Headers Layout */}
       <div style={{ 
         display: 'flex', 
-        gap: theme.spacing.lg,
-        minHeight: '300px'
+        gap: theme.spacing.md,
+        minHeight: '300px',
+        flexWrap: 'wrap', // Allow wrapping on smaller screens
       }}>
-        {renderHeaderSection("Request Headers", request.requestHeaders, copyAllRequestHeaders)}
-        {renderHeaderSection("Response Headers", request.responseHeaders, copyAllResponseHeaders)}
+        {renderHeaderSection("Request Headers", request.requestHeaders, copyAllRequestHeaders, 'request-headers')}
+        {renderHeaderSection("Response Headers", request.responseHeaders, copyAllResponseHeaders, 'response-headers')}
       </div>
     </div>
   );
